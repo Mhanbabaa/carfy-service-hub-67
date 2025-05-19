@@ -5,16 +5,18 @@ import { StatCard } from "@/components/stat-card";
 import { RevenueChart } from "@/components/revenue-chart";
 import { DailySchedules } from "@/components/daily-schedules";
 import { RecentServices } from "@/components/recent-services";
-import { DateRangePicker } from "@/components/date-range-picker";
+import { DateRangePicker, DateRange } from "@/components/date-range-picker";
 
 export default function Dashboard() {
-  const [dateRange, setDateRange] = useState<{
-    from: Date | undefined;
-    to: Date | undefined;
-  }>({
+  const [dateRange, setDateRange] = useState<DateRange>({
     from: new Date(new Date().setDate(new Date().getDate() - 30)),
     to: new Date(),
   });
+
+  // Create an onChange handler that accepts DateRange
+  const handleDateRangeChange = (range: DateRange) => {
+    setDateRange(range);
+  };
 
   return (
     <div className="space-y-8">
@@ -25,7 +27,7 @@ export default function Dashboard() {
             Servis işlemlerinizin güncel durumunu görüntüleyin
           </p>
         </div>
-        <DateRangePicker dateRange={dateRange} onChange={setDateRange} />
+        <DateRangePicker dateRange={dateRange} onChange={handleDateRangeChange} />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
