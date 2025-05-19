@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "./components/theme-provider";
 import Layout from "./components/layout";
 import Dashboard from "./pages/Dashboard";
+import Vehicles from "./pages/Vehicles";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
@@ -24,6 +25,11 @@ const App = () => (
             <Route path="/" element={
               <Layout>
                 <Dashboard />
+              </Layout>
+            } />
+            <Route path="/vehicles" element={
+              <Layout>
+                <Vehicles />
               </Layout>
             } />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
