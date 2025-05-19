@@ -9,6 +9,11 @@ import { Toaster } from './components/ui/toaster';
 import Layout from './components/layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import Vehicles from './pages/Vehicles';
+import Customers from './pages/Customers';
+import Services from './pages/Services';
+import Parts from './pages/Parts';
+import Personnel from './pages/Personnel';
 import Unauthorized from './pages/Unauthorized';
 import NotFound from './pages/NotFound';
 
@@ -30,6 +35,11 @@ function App() {
               <Route element={<ProtectedRoute />}>
                 <Route path="/" element={<Layout><Dashboard /></Layout>} />
                 <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
+                <Route path="/vehicles" element={<Layout><Vehicles /></Layout>} />
+                <Route path="/customers" element={<Layout><Customers /></Layout>} />
+                <Route path="/services" element={<Layout><Services /></Layout>} />
+                <Route path="/parts" element={<Layout><Parts /></Layout>} />
+                <Route path="/personnel" element={<Layout><Personnel /></Layout>} />
                 {/* Add more routes here as needed */}
               </Route>
               

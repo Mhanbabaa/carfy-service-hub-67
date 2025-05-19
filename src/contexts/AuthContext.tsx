@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Session } from '@supabase/supabase-js';
@@ -85,10 +84,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchUserProfile = async (userId: string) => {
     try {
-      // Fix the query to match our updated database schema
+      // Update the query to avoid TypeScript errors
       const { data, error } = await supabase
         .from('users')
-        .select('*, tenants(*)')
+        .select('*')
         .eq('id', userId)
         .maybeSingle();
 

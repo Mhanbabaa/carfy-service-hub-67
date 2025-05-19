@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -19,7 +18,7 @@ const Dashboard: React.FC = () => {
       const { data, error } = await supabase
         .from('dashboard_stats')
         .select('*')
-        .eq('tenant_id', userProfile?.tenant_id)
+        .eq('tenant_id', userProfile?.tenant_id || '')
         .maybeSingle();
 
       if (error) throw error;
@@ -34,7 +33,7 @@ const Dashboard: React.FC = () => {
       const { data, error } = await supabase
         .from('service_details')
         .select('*')
-        .eq('tenant_id', userProfile?.tenant_id)
+        .eq('tenant_id', userProfile?.tenant_id || '')
         .order('created_at', { ascending: false })
         .limit(5);
 
