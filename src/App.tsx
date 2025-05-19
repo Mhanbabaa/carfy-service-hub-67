@@ -11,6 +11,7 @@ import Vehicles from "./pages/Vehicles";
 import Customers from "./pages/Customers";
 import Services from "./pages/Services";
 import ServiceDetail from "./pages/ServiceDetail";
+import Personnel from "./pages/Personnel";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
@@ -48,6 +49,11 @@ const App = () => (
             <Route path="/services/:id" element={
               <Layout>
                 <ServiceDetail />
+              </Layout>
+            } />
+            <Route path="/personnel" element={
+              <Layout>
+                <Personnel />
               </Layout>
             } />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
