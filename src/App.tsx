@@ -9,6 +9,8 @@ import Layout from "./components/layout";
 import Dashboard from "./pages/Dashboard";
 import Vehicles from "./pages/Vehicles";
 import Customers from "./pages/Customers";
+import Services from "./pages/Services";
+import ServiceDetail from "./pages/ServiceDetail";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
@@ -36,6 +38,16 @@ const App = () => (
             <Route path="/customers" element={
               <Layout>
                 <Customers />
+              </Layout>
+            } />
+            <Route path="/services" element={
+              <Layout>
+                <Services />
+              </Layout>
+            } />
+            <Route path="/services/:id" element={
+              <Layout>
+                <ServiceDetail />
               </Layout>
             } />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
