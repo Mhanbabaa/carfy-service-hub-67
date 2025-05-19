@@ -8,6 +8,7 @@ import { ThemeProvider } from "./components/theme-provider";
 import Layout from "./components/layout";
 import Dashboard from "./pages/Dashboard";
 import Vehicles from "./pages/Vehicles";
+import Customers from "./pages/Customers";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
@@ -30,6 +31,11 @@ const App = () => (
             <Route path="/vehicles" element={
               <Layout>
                 <Vehicles />
+              </Layout>
+            } />
+            <Route path="/customers" element={
+              <Layout>
+                <Customers />
               </Layout>
             } />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
