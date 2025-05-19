@@ -110,10 +110,10 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarLink 
-                to="/staff" 
+                to="/personnel" 
                 icon={UserCog} 
                 label="Personel" 
-                isActive={currentPath.startsWith("/staff")} 
+                isActive={currentPath.startsWith("/personnel")} 
               />
               <SidebarLink 
                 to="/vehicle-models" 

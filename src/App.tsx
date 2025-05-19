@@ -12,6 +12,7 @@ import Customers from "./pages/Customers";
 import Services from "./pages/Services";
 import ServiceDetail from "./pages/ServiceDetail";
 import Personnel from "./pages/Personnel";
+import Parts from "./pages/Parts";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
@@ -54,6 +55,11 @@ const App = () => (
             <Route path="/personnel" element={
               <Layout>
                 <Personnel />
+              </Layout>
+            } />
+            <Route path="/parts" element={
+              <Layout>
+                <Parts />
               </Layout>
             } />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
