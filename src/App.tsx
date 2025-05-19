@@ -15,6 +15,7 @@ import Personnel from "./pages/Personnel";
 import Parts from "./pages/Parts";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
+import LandingPage from "./pages/LandingPage";
 
 const queryClient = new QueryClient();
 
@@ -26,8 +27,9 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
+            <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/" element={
+            <Route path="/dashboard" element={
               <Layout>
                 <Dashboard />
               </Layout>
