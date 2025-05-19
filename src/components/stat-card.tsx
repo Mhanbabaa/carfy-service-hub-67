@@ -10,6 +10,7 @@ interface StatCardProps {
   trend?: {
     value: number;
     isPositive: boolean;
+    label?: string;
   };
   className?: string;
 }
@@ -23,7 +24,7 @@ export function StatCard({
   className,
 }: StatCardProps) {
   return (
-    <Card className={cn("overflow-hidden", className)}>
+    <Card className={cn("overflow-hidden transition-all duration-200 hover:shadow-md hover:-translate-y-0.5", className)}>
       <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
         <div className="w-8 h-8 flex items-center justify-center rounded-md bg-primary/10 text-primary">
@@ -40,12 +41,12 @@ export function StatCard({
             <div
               className={cn(
                 "mr-1",
-                trend.isPositive ? "text-status-active" : "text-status-cancelled"
+                trend.isPositive ? "text-success" : "text-destructive"
               )}
             >
               {trend.isPositive ? "↑" : "↓"} {Math.abs(trend.value)}%
             </div>
-            <span className="text-muted-foreground">bu ay</span>
+            <span className="text-muted-foreground">{trend.label || "bu ay"}</span>
           </div>
         )}
       </CardContent>
