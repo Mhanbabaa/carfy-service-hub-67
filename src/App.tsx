@@ -28,14 +28,10 @@ function App() {
               
               {/* Protected routes */}
               <Route element={<ProtectedRoute />}>
-                <Route element={<Layout />}>
-                  <Route path="/dashboard" element={<Dashboard />} />
-                  {/* Add more routes here as needed */}
-                </Route>
+                <Route path="/" element={<Layout><Dashboard /></Layout>} />
+                <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
+                {/* Add more routes here as needed */}
               </Route>
-              
-              {/* Redirect root to dashboard if logged in, otherwise to login */}
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
               
               {/* 404 Not Found */}
               <Route path="*" element={<NotFound />} />

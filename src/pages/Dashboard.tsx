@@ -20,7 +20,7 @@ const Dashboard: React.FC = () => {
         .from('dashboard_stats')
         .select('*')
         .eq('tenant_id', userProfile?.tenant_id)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data as DashboardStats;
@@ -67,28 +67,28 @@ const Dashboard: React.FC = () => {
               title="Aktif Araçlar"
               value={statsLoading ? "Yükleniyor..." : String(stats?.active_vehicles || 0)}
               description="Servisteki araç sayısı"
-              icon={CarIcon}
+              icon={<CarIcon className="h-6 w-6" />}
               className="bg-blue-50 dark:bg-blue-950"
             />
             <StatCard
               title="Bu Ay Teslim Edilen"
               value={statsLoading ? "Yükleniyor..." : String(stats?.delivered_this_month || 0)}
               description="Tamamlanan servis sayısı"
-              icon={WrenchIcon}
+              icon={<WrenchIcon className="h-6 w-6" />}
               className="bg-green-50 dark:bg-green-950"
             />
             <StatCard
               title="Aylık Ciro"
-              value={statsLoading ? "Yükleniyor..." : `₺${stats?.monthly_revenue.toLocaleString() || 0}`}
+              value={statsLoading ? "Yükleniyor..." : `₺${stats?.monthly_revenue?.toLocaleString() || 0}`}
               description="Bu ayki toplam gelir"
-              icon={CreditCardIcon}
+              icon={<CreditCardIcon className="h-6 w-6" />}
               className="bg-purple-50 dark:bg-purple-950"
             />
             <StatCard
               title="Yıllık Ciro"
-              value={statsLoading ? "Yükleniyor..." : `₺${stats?.yearly_revenue.toLocaleString() || 0}`}
+              value={statsLoading ? "Yükleniyor..." : `₺${stats?.yearly_revenue?.toLocaleString() || 0}`}
               description="Bu yılki toplam gelir"
-              icon={CreditCardIcon}
+              icon={<CreditCardIcon className="h-6 w-6" />}
               className="bg-amber-50 dark:bg-amber-950"
             />
           </div>
