@@ -1,40 +1,18 @@
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
 import { cn } from "@/lib/utils";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
-interface RevenueChartProps {
-  className?: string;
+export interface DataPoint {
+  name: string;
+  total: number;
+  [key: string]: any;
 }
 
-// Örnek veri - gerçek uygulamada API'den gelecektir
-const data = [
-  {
-    month: "Oca",
-    gelir: 35400,
-  },
-  {
-    month: "Şub",
-    gelir: 28000,
-  },
-  {
-    month: "Mar",
-    gelir: 32000,
-  },
-  {
-    month: "Nis",
-    gelir: 39000,
-  },
-  {
-    month: "May",
-    gelir: 42000,
-  },
-  {
-    month: "Haz",
-    gelir: 43543,
-  },
-];
+export interface RevenueChartProps {
+  className?: string;
+  data: DataPoint[];
+}
 
 // Formatters
 const moneyFormatter = (value: number) => {
@@ -46,9 +24,9 @@ const moneyFormatter = (value: number) => {
   }).format(value);
 };
 
-export function RevenueChart({ className }: RevenueChartProps) {
+export function RevenueChart({ className, data }: RevenueChartProps) {
   const chartConfig = {
-    gelir: {
+    total: {
       label: "Gelir",
       theme: {
         light: "#7C3AED",
@@ -68,7 +46,7 @@ export function RevenueChart({ className }: RevenueChartProps) {
           <AreaChart data={data}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis 
-              dataKey="month" 
+              dataKey="name" 
               axisLine={false}
               tickLine={false}
               tickMargin={8}
@@ -95,17 +73,17 @@ export function RevenueChart({ className }: RevenueChartProps) {
               }}
             />
             <defs>
-              <linearGradient id="colorGelir" x1="0" y1="0" x2="0" y2="1">
+              <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#7C3AED" stopOpacity={0.8}/>
                 <stop offset="95%" stopColor="#7C3AED" stopOpacity={0}/>
               </linearGradient>
             </defs>
             <Area
               type="monotone"
-              dataKey="gelir"
+              dataKey="total"
               stroke="#7C3AED"
               fillOpacity={1}
-              fill="url(#colorGelir)"
+              fill="url(#colorTotal)"
               strokeWidth={2}
             />
           </AreaChart>

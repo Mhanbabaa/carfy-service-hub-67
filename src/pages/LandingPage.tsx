@@ -1,4 +1,3 @@
-
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -48,7 +47,7 @@ export default function LandingPage() {
             </Button>
             <Button
               className="hidden md:flex"
-              onClick={() => navigate("/login")}
+              onClick={() => navigate("/signup")}
             >
               Kaydol
             </Button>
@@ -113,7 +112,7 @@ export default function LandingPage() {
                 <Button variant="outline" className="w-full" onClick={() => navigate("/login")}>
                   Giriş Yap
                 </Button>
-                <Button className="w-full" onClick={() => navigate("/login")}>
+                <Button className="w-full" onClick={() => navigate("/signup")}>
                   Kaydol
                 </Button>
               </div>
@@ -134,7 +133,7 @@ export default function LandingPage() {
                 Servis süreçlerinizi dijitalleştirin, müşteri memnuniyetini artırın ve işlerinizi daha verimli yönetin
               </p>
               <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                <Button size="lg" className="text-base" onClick={() => navigate("/login")}>
+                <Button size="lg" className="text-base" onClick={() => navigate("/signup")}>
                   Hemen Başlayın
                 </Button>
                 <Button size="lg" variant="outline" className="text-base">

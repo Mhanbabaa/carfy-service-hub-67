@@ -1,7 +1,7 @@
-
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { Loader2 } from 'lucide-react';
 
 interface ProtectedRouteProps {
   allowedRoles?: string[];
@@ -11,6 +11,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) 
   const { isAuthenticated, userProfile, loading, user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const [tenantVerified, setTenantVerified] = useState<boolean | null>(null);
 
   // Handle password change requirement
   useEffect(() => {
@@ -21,16 +22,31 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) 
     }
   }, [loading, isAuthenticated, user, location.pathname, navigate]);
 
-  if (loading) {
+  useEffect(() => {
+    // Verify tenant access
+    if (!loading && userProfile) {
+      // Check if user has a valid tenant ID
+      setTenantVerified(!!userProfile.tenant_id);
+    }
+  }, [loading, userProfile]);
+
+  if (loading || tenantVerified === null) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        <div className="flex flex-col items-center">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          <p className="mt-4 text-muted-foreground">Yükleniyor...</p>
+        </div>
       </div>
     );
   }
 
   if (!isAuthenticated()) {
     return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+
+  if (!tenantVerified) {
+    return <Navigate to="/unauthorized" replace />;
   }
 
   // If user must change password, enforce redirect

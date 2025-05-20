@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Session } from '@supabase/supabase-js';
@@ -11,7 +10,7 @@ interface AuthContextType {
   user: User | null;
   userProfile: AppUser | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<any>;
   signOut: () => Promise<void>;
   isAuthenticated: () => boolean;
   mustChangePassword: () => boolean;
@@ -91,6 +90,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchUserProfile = async (userId: string) => {
     try {
+      console.log('Fetching user profile for ID:', userId);
+      
       const { data, error } = await supabase
         .from('users')
         .select('*, tenants(*)')
@@ -99,11 +100,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) {
         console.error('Error fetching user profile:', error);
+        
+        // Eğer kullanıcı profili bulunamazsa (yeni kayıt vs), app_metadata'dan tenant bilgilerini alıp ilerleyebiliriz
+        console.log('Falling back to user metadata for tenant info');
+        const { data: userData } = await supabase.auth.getUser();
+        
+        if (userData?.user?.app_metadata?.tenant_id) {
+          console.log('Retrieved tenant_id from metadata:', userData.user.app_metadata.tenant_id);
+          
+          // Tenant ID'yi userData'dan alarak basit bir userProfile objesi oluştur
+          setUserProfile({
+            id: userId,
+            tenant_id: userData.user.app_metadata.tenant_id,
+            email: userData.user.email || '',
+            role: userData.user.app_metadata.role || 'user',
+            first_name: userData.user.user_metadata?.first_name || '',
+            last_name: userData.user.user_metadata?.last_name || '',
+          } as AppUser);
+          
+          return;
+        }
+        
         return;
       }
 
       if (data) {
+        console.log('User profile retrieved successfully:', data);
         setUserProfile(data as AppUser);
+      } else {
+        console.warn('No user profile data found for user ID:', userId);
       }
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);
@@ -113,15 +138,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signIn = async (email: string, password: string) => {
     try {
       setLoading(true);
-      const { error } = await supabase.auth.signInWithPassword({
+      console.log("Auth context: Starting sign in process");
+      
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
+      console.log("Auth response data:", data);
+      
       if (error) {
+        console.error("Auth error details:", error);
         throw error;
       }
+      
+      return data;
     } catch (error: any) {
+      console.error("Complete auth error:", error);
       toast({
         variant: 'destructive',
         title: 'Giriş hatası',

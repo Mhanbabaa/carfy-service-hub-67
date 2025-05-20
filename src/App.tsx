@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -18,6 +17,8 @@ import AdminPanel from './pages/AdminPanel';
 import ChangePassword from './pages/ChangePassword';
 import Unauthorized from './pages/Unauthorized';
 import NotFound from './pages/NotFound';
+import LandingPage from './pages/LandingPage';
+import Signup from './pages/Signup';
 
 // Initialize the query client
 const queryClient = new QueryClient();
@@ -52,14 +53,15 @@ function App() {
           <AuthProvider>
             <Routes>
               {/* Public routes */}
+              <Route path="/" element={<LandingPage />} />
               <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
               <Route path="/unauthorized" element={<Unauthorized />} />
               <Route path="/change-password" element={<ChangePassword />} />
               
               {/* Protected routes */}
               <Route element={<ProtectedRoute />}>
                 <Route element={<AuthRedirect><Layout /></AuthRedirect>}>
-                  <Route path="/" element={<Dashboard />} />
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/vehicles" element={<Vehicles />} />
                   <Route path="/customers" element={<Customers />} />

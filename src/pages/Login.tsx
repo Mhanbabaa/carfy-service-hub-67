@@ -23,12 +23,15 @@ const Login: React.FC = () => {
     setError(null);
     
     try {
-      await signIn(email, password);
+      console.log("Attempting to sign in with:", email);
+      const result = await signIn(email, password);
+      console.log("Sign in result:", result);
       
       // Navigation will be handled by AuthRedirect component
       // If the user must change password, they'll be redirected to /change-password
       // Otherwise, they'll go to /dashboard
     } catch (error: any) {
+      console.error("Login error details:", error);
       setError(error.message || 'Giriş yaparken bir hata oluştu.');
     } finally {
       setIsSubmitting(false);
