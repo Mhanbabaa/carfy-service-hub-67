@@ -74,7 +74,7 @@ const Dashboard: React.FC = () => {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <StatCard
               title="Aktif Servisler"
-              value={statsLoading ? "-" : `${stats?.active_vehicles || 0}`}
+              value={statsLoading ? "-" : `${parseInt(stats?.active_vehicles?.toString() || '0')}`}
               description="Devam eden servis işlemleri"
               icon={<WrenchIcon className="h-4 w-4 text-muted-foreground" />}
               trend={{
@@ -85,7 +85,7 @@ const Dashboard: React.FC = () => {
             />
             <StatCard
               title="Bu Ay Teslim Edilen"
-              value={statsLoading ? "-" : `${stats?.delivered_this_month || 0}`}
+              value={statsLoading ? "-" : `${parseInt(stats?.delivered_this_month?.toString() || '0')}`}
               description="Teslim edilen araçlar"
               icon={<CarIcon className="h-4 w-4 text-muted-foreground" />}
               trend={{
@@ -96,7 +96,7 @@ const Dashboard: React.FC = () => {
             />
             <StatCard
               title="Aylık Gelir"
-              value={statsLoading ? "-" : `₺${stats?.monthly_revenue?.toLocaleString() || 0}`}
+              value={statsLoading ? "-" : `₺${Number(stats?.monthly_revenue || 0).toLocaleString()}`}
               description="Bu ayki toplam gelir"
               icon={<CreditCardIcon className="h-4 w-4 text-muted-foreground" />}
               trend={{

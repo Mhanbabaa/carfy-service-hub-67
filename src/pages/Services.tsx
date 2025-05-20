@@ -22,7 +22,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { Eye, Pencil, Plus, Search, SlidersHorizontal, Trash2 } from "lucide-react";
-import { Service, getStatusColor, getStatusLabel } from "@/types/service";
+import { Service, ServiceStatus, getStatusColor, getStatusLabel } from "@/types/service";
 import { ServiceModal } from "@/components/services/ServiceModal";
 import { useToast } from "@/hooks/use-toast";
 import { ServiceCard } from "@/components/services/ServiceCard";
@@ -78,7 +78,7 @@ const Services = () => {
         year: item.year,
         mileage: item.mileage || 0,
         customerName: item.customer_name,
-        status: item.status,
+        status: item.status as ServiceStatus,
         laborCost: Number(item.labor_cost),
         partsCost: Number(item.parts_cost),
         totalCost: Number(item.total_cost),
@@ -157,7 +157,7 @@ const Services = () => {
             mileage: service.mileage,
             labor_cost: service.laborCost,
             parts_cost: service.partsCost,
-            delivery_date: service.deliveryDate,
+            delivery_date: service.deliveryDate ? service.deliveryDate.toISOString() : null,
             updated_at: new Date().toISOString(),
           })
           .eq('id', service.id);

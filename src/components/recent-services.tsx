@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { ServiceStatus } from '@/types/service';
 
 export function RecentServices() {
   const { userProfile } = useAuth();
@@ -48,14 +49,14 @@ export function RecentServices() {
         customer: service.customer_name,
         model: `${service.brand_name} ${service.model_name}`,
         date: new Date(service.arrival_date).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric' }),
-        status: service.status,
-        price: new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(service.total_cost),
+        status: service.status as ServiceStatus,
+        price: new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(Number(service.total_cost)),
       }));
     },
     enabled: !!userProfile?.tenant_id,
   });
 
-  const getStatusDisplay = (status: string) => {
+  const getStatusDisplay = (status: ServiceStatus) => {
     switch (status) {
       case 'waiting':
         return { label: 'Bekliyor', className: 'border-status-pending text-status-pending' };
