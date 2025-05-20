@@ -1,9 +1,9 @@
 
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from './components/theme-provider';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Toaster } from './components/ui/toaster';
 import Layout from './components/layout';
@@ -14,11 +14,35 @@ import Customers from './pages/Customers';
 import Services from './pages/Services';
 import Parts from './pages/Parts';
 import Personnel from './pages/Personnel';
+import AdminPanel from './pages/AdminPanel';
+import ChangePassword from './pages/ChangePassword';
 import Unauthorized from './pages/Unauthorized';
 import NotFound from './pages/NotFound';
 
 // Initialize the query client
 const queryClient = new QueryClient();
+
+// Auth check middleware to force password change on first login
+const AuthRedirect: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, isAuthenticated, loading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading && isAuthenticated() && user?.user_metadata?.must_change_password === true) {
+      navigate('/change-password');
+    }
+  }, [loading, isAuthenticated, user, navigate]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+};
 
 function App() {
   return (
@@ -30,17 +54,20 @@ function App() {
               {/* Public routes */}
               <Route path="/login" element={<Login />} />
               <Route path="/unauthorized" element={<Unauthorized />} />
+              <Route path="/change-password" element={<ChangePassword />} />
               
               {/* Protected routes */}
               <Route element={<ProtectedRoute />}>
-                <Route path="/" element={<Layout><Dashboard /></Layout>} />
-                <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
-                <Route path="/vehicles" element={<Layout><Vehicles /></Layout>} />
-                <Route path="/customers" element={<Layout><Customers /></Layout>} />
-                <Route path="/services" element={<Layout><Services /></Layout>} />
-                <Route path="/parts" element={<Layout><Parts /></Layout>} />
-                <Route path="/personnel" element={<Layout><Personnel /></Layout>} />
-                {/* Add more routes here as needed */}
+                <Route element={<AuthRedirect><Layout /></AuthRedirect>}>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/vehicles" element={<Vehicles />} />
+                  <Route path="/customers" element={<Customers />} />
+                  <Route path="/services" element={<Services />} />
+                  <Route path="/parts" element={<Parts />} />
+                  <Route path="/personnel" element={<Personnel />} />
+                  <Route path="/admin" element={<AdminPanel />} />
+                </Route>
               </Route>
               
               {/* 404 Not Found */}

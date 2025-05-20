@@ -1,6 +1,6 @@
 
-import React from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface ProtectedRouteProps {
@@ -8,7 +8,18 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) => {
-  const { isAuthenticated, userProfile, loading } = useAuth();
+  const { isAuthenticated, userProfile, loading, user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Handle password change requirement
+  useEffect(() => {
+    if (!loading && isAuthenticated() && user?.user_metadata?.must_change_password === true) {
+      if (location.pathname !== '/change-password') {
+        navigate('/change-password');
+      }
+    }
+  }, [loading, isAuthenticated, user, location.pathname, navigate]);
 
   if (loading) {
     return (
@@ -19,7 +30,14 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) 
   }
 
   if (!isAuthenticated()) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+
+  // If user must change password, enforce redirect
+  if (user?.user_metadata?.must_change_password === true) {
+    if (location.pathname !== '/change-password') {
+      return <Navigate to="/change-password" replace />;
+    }
   }
 
   // If specific roles are required, check if user has the right role

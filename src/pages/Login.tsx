@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,11 +7,11 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Loader2 } from 'lucide-react';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
-  const { signIn, isAuthenticated, loading } = useAuth();
+  const { signIn, isAuthenticated, loading, user } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +24,10 @@ const Login: React.FC = () => {
     
     try {
       await signIn(email, password);
-      navigate('/dashboard');
+      
+      // Navigation will be handled by AuthRedirect component
+      // If the user must change password, they'll be redirected to /change-password
+      // Otherwise, they'll go to /dashboard
     } catch (error: any) {
       setError(error.message || 'Giriş yaparken bir hata oluştu.');
     } finally {
@@ -33,8 +35,11 @@ const Login: React.FC = () => {
     }
   };
 
-  // If already authenticated, redirect to dashboard
+  // If already authenticated, redirect based on password change requirement
   if (isAuthenticated() && !loading) {
+    if (user?.user_metadata?.must_change_password === true) {
+      return <Navigate to="/change-password" replace />;
+    }
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -93,7 +98,14 @@ const Login: React.FC = () => {
                     />
                   </div>
                   <Button type="submit" className="w-full" disabled={isSubmitting || loading}>
-                    {isSubmitting || loading ? 'Giriş Yapılıyor...' : 'Giriş Yap'}
+                    {isSubmitting || loading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Giriş Yapılıyor...
+                      </>
+                    ) : (
+                      'Giriş Yap'
+                    )}
                   </Button>
                 </form>
               </TabsContent>

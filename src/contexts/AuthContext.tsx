@@ -14,6 +14,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   isAuthenticated: () => boolean;
+  mustChangePassword: () => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -54,6 +55,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             title: 'Giriş başarılı',
             description: 'Hoş geldiniz!',
           });
+          
+          // İlk girişte şifre değiştirme kontrolü
+          if (currentSession?.user?.user_metadata?.must_change_password === true) {
+            navigate('/change-password');
+          }
         } else if (event === 'SIGNED_OUT') {
           toast({
             title: 'Çıkış yapıldı',
@@ -150,6 +156,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return !!session;
   };
 
+  const mustChangePassword = () => {
+    return !!user?.user_metadata?.must_change_password;
+  };
+
   const value = {
     session,
     user,
@@ -158,6 +168,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signIn,
     signOut,
     isAuthenticated,
+    mustChangePassword,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
