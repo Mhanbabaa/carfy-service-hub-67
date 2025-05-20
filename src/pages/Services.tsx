@@ -1,6 +1,9 @@
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { 
   Table, 
   TableBody, 
@@ -19,7 +22,6 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { Eye, Pencil, Plus, Search, SlidersHorizontal, Trash2 } from "lucide-react";
-import { mockServices } from "@/data/services";
 import { Service, getStatusColor, getStatusLabel } from "@/types/service";
 import { ServiceModal } from "@/components/services/ServiceModal";
 import { useToast } from "@/hooks/use-toast";
@@ -41,10 +43,56 @@ const Services = () => {
   const isMobile = useIsMobile();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [services, setServices] = useState<Service[]>(mockServices);
+  const { userProfile } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
+
+  // Fetch service data from Supabase
+  const { data: services = [], isLoading, refetch } = useQuery({
+    queryKey: ['services', userProfile?.tenant_id],
+    queryFn: async () => {
+      if (!userProfile?.tenant_id) return [];
+      
+      const { data, error } = await supabase
+        .from('service_details')
+        .select('*')
+        .eq('tenant_id', userProfile.tenant_id);
+      
+      if (error) {
+        console.error('Error fetching services:', error);
+        toast({
+          title: "Veri alma hatası",
+          description: "Servis işlemleri yüklenirken bir hata oluştu.",
+          variant: "destructive",
+        });
+        return [];
+      }
+      
+      // Map Supabase data to our Service type
+      return data.map(item => ({
+        id: item.id,
+        plateNumber: item.plate_number,
+        make: item.brand_name,
+        model: item.model_name,
+        year: item.year,
+        mileage: item.mileage || 0,
+        customerName: item.customer_name,
+        status: item.status,
+        laborCost: Number(item.labor_cost),
+        partsCost: Number(item.parts_cost),
+        totalCost: Number(item.total_cost),
+        technician: item.technician_name,
+        complaint: item.complaint || '',
+        servicePerformed: item.work_done || '',
+        parts: [],
+        history: [],
+        arrivalDate: new Date(item.arrival_date),
+        deliveryDate: item.delivery_date ? new Date(item.delivery_date) : undefined
+      }));
+    },
+    enabled: !!userProfile?.tenant_id,
+  });
 
   const filteredServices = services.filter(service => 
     service.plateNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -63,13 +111,32 @@ const Services = () => {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (serviceId: string) => {
-    setServices(services.filter(service => service.id !== serviceId));
-    toast({
-      title: "Servis işlemi silindi",
-      description: "Servis işlemi başarıyla silindi.",
-      variant: "default",
-    });
+  const handleDelete = async (serviceId: string) => {
+    try {
+      const { error } = await supabase
+        .from('services')
+        .delete()
+        .eq('id', serviceId);
+      
+      if (error) {
+        throw error;
+      }
+
+      refetch();
+      
+      toast({
+        title: "Servis işlemi silindi",
+        description: "Servis işlemi başarıyla silindi.",
+        variant: "default",
+      });
+    } catch (error) {
+      console.error('Error deleting service:', error);
+      toast({
+        title: "Silme hatası",
+        description: "Servis işlemi silinirken bir hata oluştu.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleAddNew = () => {
@@ -77,30 +144,64 @@ const Services = () => {
     setIsModalOpen(true);
   };
 
-  const handleSave = (service: Service) => {
-    if (selectedService) {
-      // Update existing service
-      setServices(services.map(s => s.id === service.id ? service : s));
+  const handleSave = async (service: Service) => {
+    try {
+      if (selectedService) {
+        // Update existing service
+        const { error } = await supabase
+          .from('services')
+          .update({
+            status: service.status,
+            complaint: service.complaint,
+            work_done: service.servicePerformed,
+            mileage: service.mileage,
+            labor_cost: service.laborCost,
+            parts_cost: service.partsCost,
+            delivery_date: service.deliveryDate,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', service.id);
+        
+        if (error) throw error;
+        
+        toast({
+          title: "Servis işlemi güncellendi",
+          description: "Servis işlemi başarıyla güncellendi.",
+          variant: "default",
+        });
+      } else {
+        // Add new service - this would require more data like vehicle_id
+        toast({
+          title: "Uyarı",
+          description: "Yeni servis eklemek için araç seçimi gereklidir. Lütfen önce araç seçiniz.",
+          variant: "default",
+        });
+        // In a real implementation, we would need to collect vehicle info first
+      }
+      
+      refetch();
+      setIsModalOpen(false);
+    } catch (error: any) {
+      console.error('Error saving service:', error);
       toast({
-        title: "Servis işlemi güncellendi",
-        description: "Servis işlemi başarıyla güncellendi.",
-        variant: "default",
-      });
-    } else {
-      // Add new service
-      setServices([...services, service]);
-      toast({
-        title: "Servis işlemi eklendi",
-        description: "Yeni servis işlemi başarıyla eklendi.",
-        variant: "default",
+        title: "Kaydetme hatası",
+        description: error.message || "Servis işlemi kaydedilirken bir hata oluştu.",
+        variant: "destructive",
       });
     }
-    setIsModalOpen(false);
   };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount);
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -129,12 +230,12 @@ const Services = () => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem>Tüm Servisler</DropdownMenuItem>
-              <DropdownMenuItem>Bekleyen Servisler</DropdownMenuItem>
-              <DropdownMenuItem>Devam Eden Servisler</DropdownMenuItem>
-              <DropdownMenuItem>Tamamlanan Servisler</DropdownMenuItem>
-              <DropdownMenuItem>Teslim Edilen Servisler</DropdownMenuItem>
-              <DropdownMenuItem>İptal Edilen Servisler</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSearchQuery("")}>Tüm Servisler</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSearchQuery("bekliyor")}>Bekleyen Servisler</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSearchQuery("devam ediyor")}>Devam Eden Servisler</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSearchQuery("tamamlandı")}>Tamamlanan Servisler</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSearchQuery("teslim edildi")}>Teslim Edilen Servisler</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSearchQuery("iptal edildi")}>İptal Edilen Servisler</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           <Button onClick={handleAddNew}>
@@ -144,7 +245,11 @@ const Services = () => {
         </div>
       </div>
 
-      {isMobile ? (
+      {filteredServices.length === 0 ? (
+        <div className="text-center py-10">
+          <p className="text-muted-foreground">Servis işlemi bulunamadı.</p>
+        </div>
+      ) : isMobile ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredServices.map((service) => (
             <ServiceCard
@@ -194,7 +299,7 @@ const Services = () => {
                       Parça: {formatCurrency(service.partsCost)}
                     </div>
                   </TableCell>
-                  <TableCell>{service.technician}</TableCell>
+                  <TableCell>{service.technician || "-"}</TableCell>
                   <TableCell>
                     <div className="flex justify-end items-center gap-2">
                       <Button 
@@ -250,29 +355,6 @@ const Services = () => {
           </Table>
         </div>
       )}
-
-      <div className="flex justify-between items-center">
-        <div className="text-sm text-muted-foreground">
-          Toplam {filteredServices.length} servis işlemi
-        </div>
-        <div className="flex items-center gap-1">
-          <Button variant="outline" size="sm" disabled>
-            Önceki
-          </Button>
-          <Button variant="outline" size="sm" className="bg-primary text-primary-foreground">
-            1
-          </Button>
-          <Button variant="outline" size="sm">
-            2
-          </Button>
-          <Button variant="outline" size="sm">
-            3
-          </Button>
-          <Button variant="outline" size="sm">
-            Sonraki
-          </Button>
-        </div>
-      </div>
 
       <ServiceModal 
         open={isModalOpen}
