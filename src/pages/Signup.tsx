@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -47,70 +48,19 @@ const Signup: React.FC = () => {
     }
 
     try {
-      // 1. Önce auth sistem üzerinden kullanıcı oluştur
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            first_name: firstName,
-            last_name: lastName
-          }
-        }
+      // Supabase RPC fonksiyonunu kullanarak tenant ve kullanıcı oluştur
+      const { data: result, error: rpcError } = await supabase.rpc('create_tenant_with_user', {
+        tenant_name: companyName,
+        user_email: email,
+        user_password: password,
+        user_first_name: firstName,
+        user_last_name: lastName,
+        user_phone: phone,
+        user_role: 'admin'
       });
 
-      if (authError) {
-        throw authError;
-      }
-
-      if (!authData.user) {
-        throw new Error('Kullanıcı oluşturulamadı');
-      }
-
-      // 2. Tenant oluştur
-      const { data: tenantData, error: tenantError } = await supabase
-        .from('tenants')
-        .insert({
-          name: companyName,
-          phone: phone,
-          email: email
-        })
-        .select('id')
-        .single();
-
-      if (tenantError) {
-        // Kullanıcı oluştu ama tenant oluşamadı, kullanıcıyı silmek gerekebilir
-        await supabase.auth.admin.deleteUser(authData.user.id);
-        throw tenantError;
-      }
-
-      // 3. Kullanıcı metadata'sını güncelle
-      const { error: metadataError } = await supabase.auth.updateUser({
-        data: {
-          tenant_id: tenantData.id,
-          role: 'admin'
-        }
-      });
-
-      if (metadataError) {
-        throw metadataError;
-      }
-
-      // 4. users tablosuna kayıt ekle
-      const { error: userError } = await supabase
-        .from('users')
-        .insert({
-          id: authData.user.id,
-          tenant_id: tenantData.id,
-          email: email,
-          first_name: firstName,
-          last_name: lastName,
-          phone: phone,
-          role: 'admin'
-        });
-
-      if (userError) {
-        throw userError;
+      if (rpcError) {
+        throw rpcError;
       }
 
       // Başarılı kayıt bildirim mesajı
@@ -123,7 +73,12 @@ const Signup: React.FC = () => {
       navigate('/login');
     } catch (error: any) {
       console.error('Kayıt hatası:', error);
-      setError(error.message || 'Kayıt sırasında bir hata oluştu.');
+      
+      if (error.message.includes('duplicate key')) {
+        setError('Bu e-posta adresi ile daha önce kayıt olunmuş.');
+      } else {
+        setError(error.message || 'Kayıt sırasında bir hata oluştu.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -258,4 +213,4 @@ const Signup: React.FC = () => {
   );
 };
 
-export default Signup; 
+export default Signup;

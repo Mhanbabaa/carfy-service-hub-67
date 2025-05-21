@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -113,6 +114,14 @@ const Login: React.FC = () => {
                 </form>
               </TabsContent>
             </Tabs>
+            <div className="mt-4 text-center">
+              <p>
+                Hesabınız yok mu?{' '}
+                <a href="/signup" className="text-primary hover:underline">
+                  Hemen Kaydolun
+                </a>
+              </p>
+            </div>
           </CardContent>
           <CardFooter className="flex flex-col items-center text-center text-sm text-muted-foreground">
             <p className="mt-2">

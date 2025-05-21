@@ -230,46 +230,46 @@ const Dashboard: React.FC = () => {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               <StatCard
                 title="Aktif Servisler"
-                value={stats?.active_vehicles || 0}
+                value={Number(stats?.active_vehicles || 0)}
                 description="Devam eden servis işlemleri"
                 icon={<WrenchIcon className="h-4 w-4 text-muted-foreground" />}
                 trend={{
                   value: 12,
                   isPositive: true,
-                  label: 'geçen haftadan',
+                  label: "geçen haftadan"
                 }}
               />
               <StatCard
                 title="Bu Ay Teslim Edilen"
-                value={stats?.delivered_this_month || 0}
+                value={Number(stats?.delivered_this_month || 0)}
                 description="Teslim edilen araçlar"
                 icon={<CarIcon className="h-4 w-4 text-muted-foreground" />}
                 trend={{
                   value: 3,
                   isPositive: false,
-                  label: 'geçen aydan',
+                  label: "geçen aydan"
                 }}
               />
               <StatCard
                 title="Aylık Gelir"
-                value={stats?.monthly_revenue || 0}
+                value={Number(stats?.monthly_revenue || 0)}
                 description="Bu ayki toplam gelir"
                 icon={<CreditCardIcon className="h-4 w-4 text-muted-foreground" />}
                 trend={{
                   value: 2.5,
                   isPositive: true,
-                  label: 'geçen aydan',
+                  label: "geçen aydan"
                 }}
               />
               <StatCard
                 title="Yıllık Gelir"
-                value={stats?.yearly_revenue || 0}
+                value={Number(stats?.yearly_revenue || 0)}
                 description="Bu yılki toplam gelir"
                 icon={<CreditCardIcon className="h-4 w-4 text-muted-foreground" />}
                 trend={{
                   value: 4.3,
                   isPositive: true,
-                  label: 'geçen yıldan',
+                  label: "geçen yıldan"
                 }}
               />
             </div>

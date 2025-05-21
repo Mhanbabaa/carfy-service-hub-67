@@ -1,602 +1,252 @@
 
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useState, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { Loader2, Plus, RefreshCw, UserPlus } from "lucide-react";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { toast } from '@/hooks/use-toast';
+import { Loader2, RefreshCw, UserPlus } from 'lucide-react';
 
-// Define validation schemas
-const createTenantSchema = z.object({
-  name: z.string().min(2, { message: "Tenant adı en az 2 karakter olmalıdır" }),
-  address: z.string().optional(),
-  phone: z.string().optional(),
-  email: z.string().email({ message: "Geçerli bir e-posta adresi giriniz" }).optional(),
-});
-
-const createUserSchema = z.object({
-  firstName: z.string().min(1, { message: "Ad alanı zorunludur" }),
-  lastName: z.string().min(1, { message: "Soyad alanı zorunludur" }),
-  email: z.string().email({ message: "Geçerli bir e-posta adresi giriniz" }),
-  tenantId: z.string().uuid({ message: "Geçerli bir tenant seçiniz" }),
-  role: z.enum(['admin', 'technician', 'consultant', 'accounting']),
-  tempPassword: z.string().min(6, { message: "Şifre en az 6 karakter olmalıdır" }),
-});
-
-type CreateTenantFormValues = z.infer<typeof createTenantSchema>;
-type CreateUserFormValues = z.infer<typeof createUserSchema>;
-
-const AdminPanel: React.FC = () => {
+const AdminPanel = () => {
   const { userProfile } = useAuth();
-  const { toast } = useToast();
-  const [isCreatingTenant, setIsCreatingTenant] = useState(false);
-  const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [tenants, setTenants] = useState([]);
+  const [loadingTenants, setLoadingTenants] = useState(true);
 
-  // Tenant oluşturma form
-  const tenantForm = useForm<CreateTenantFormValues>({
-    resolver: zodResolver(createTenantSchema),
-    defaultValues: {
-      name: "",
-      address: "",
-      phone: "",
-      email: "",
-    },
-  });
+  const { register, handleSubmit, reset, formState: { errors } } = useForm();
 
-  // Kullanıcı oluşturma form
-  const userForm = useForm<CreateUserFormValues>({
-    resolver: zodResolver(createUserSchema),
-    defaultValues: {
-      firstName: "",
-      lastName: "",
-      email: "",
-      tenantId: "",
-      role: "admin",
-      tempPassword: "",
-    },
-  });
+  // Tenant oluşturma ve kullanıcı ekleme formu
+  const onSubmit = async (data) => {
+    setLoading(true);
+    try {
+      // Tenant ve kullanıcı bilgilerini hazırla
+      const tenantData = {
+        name: data.companyName,
+        phone: data.phone,
+        email: data.email,
+      };
 
-  // Tenant listesi çekme
-  const { data: tenants = [], isLoading: isLoadingTenants, refetch: refetchTenants } = useQuery({
-    queryKey: ['tenants'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('tenants')
-        .select('*')
-        .order('name', { ascending: true });
+      // Supabase fonksiyonunu çağırarak tenant ve kullanıcı oluştur
+      const { data: result, error } = await supabase.rpc('create_tenant_with_user', {
+        tenant_name: data.companyName,
+        user_email: data.email,
+        user_password: data.password,
+        user_first_name: data.firstName,
+        user_last_name: data.lastName,
+        user_phone: data.phone,
+        user_role: 'admin'
+      });
 
       if (error) {
-        toast({
-          variant: "destructive",
-          title: "Hata",
-          description: "Tenant listesi yüklenirken hata oluştu: " + error.message,
-        });
-        return [];
+        throw new Error(`Tenant oluşturma hatası: ${error.message}`);
       }
 
-      return data;
-    },
-  });
+      toast({
+        title: 'Başarılı!',
+        description: `${data.companyName} firması ve yönetici kullanıcısı oluşturuldu.`,
+      });
 
-  // Kullanıcı listesi çekme
-  const { data: users = [], isLoading: isLoadingUsers, refetch: refetchUsers } = useQuery({
-    queryKey: ['users'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('users')
-        .select('*, tenants(name)')
-        .order('email', { ascending: true });
+      // Formu sıfırla ve tenant listesini güncelle
+      reset();
+      fetchTenants();
+    } catch (error) {
+      console.error('Tenant oluşturma hatası:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Hata!',
+        description: error.message,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      if (error) {
-        toast({
-          variant: "destructive",
-          title: "Hata",
-          description: "Kullanıcı listesi yüklenirken hata oluştu: " + error.message,
-        });
-        return [];
-      }
-
-      return data;
-    },
-  });
-
-  // Tenant oluşturma
-  const onCreateTenant = async (values: CreateTenantFormValues) => {
-    setIsCreatingTenant(true);
+  // Tenant listesini getir
+  const fetchTenants = async () => {
+    setLoadingTenants(true);
     try {
       const { data, error } = await supabase
         .from('tenants')
-        .insert([values])
-        .select()
-        .single();
+        .select(`
+          id,
+          name,
+          email,
+          phone,
+          address,
+          created_at,
+          users (id, first_name, last_name, email, role)
+        `)
+        .order('created_at', { ascending: false });
 
       if (error) {
         throw error;
       }
 
+      setTenants(data || []);
+    } catch (error) {
+      console.error('Tenant listesi alınamadı:', error);
       toast({
-        title: "Başarılı",
-        description: `${data.name} tenant'ı başarıyla oluşturuldu.`,
-      });
-
-      tenantForm.reset();
-      refetchTenants();
-      
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Hata",
-        description: "Tenant oluşturulurken hata: " + error.message,
+        variant: 'destructive',
+        title: 'Hata!',
+        description: 'Tenant listesi alınamadı.',
       });
     } finally {
-      setIsCreatingTenant(false);
+      setLoadingTenants(false);
     }
   };
 
-  // Kullanıcı oluşturma
-  const onCreateUser = async (values: CreateUserFormValues) => {
-    setIsCreatingUser(true);
-    try {
-      // Önce Supabase Auth üzerinden kullanıcı oluştur
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: values.email,
-        password: values.tempPassword,
-        email_confirm: true, // E-posta doğrulamasını atla
-        user_metadata: {
-          tenant_id: values.tenantId,
-          first_name: values.firstName,
-          last_name: values.lastName,
-          must_change_password: true, // İlk girişte şifre değiştirme zorunluluğu
-        },
-      });
-
-      if (authError) {
-        throw authError;
-      }
-
-      // Supabase users tablosuna eklenecek (handle_new_user trigger ile otomatik olarak eklenir)
-      // Ancak role bilgisini güncellememiz gerekiyor
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({ role: values.role })
-        .eq('id', authData.user.id);
-
-      if (updateError) {
-        throw updateError;
-      }
-
-      toast({
-        title: "Başarılı",
-        description: `${values.email} kullanıcısı başarıyla oluşturuldu.`,
-      });
-
-      userForm.reset();
-      refetchUsers();
-      
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Hata",
-        description: "Kullanıcı oluşturulurken hata: " + error.message,
-      });
-    } finally {
-      setIsCreatingUser(false);
-    }
-  };
-
-  const getRoleBadgeColor = (role: string) => {
-    switch (role) {
-      case 'admin':
-        return "bg-red-100 text-red-800 hover:bg-red-100/80";
-      case 'technician':
-        return "bg-blue-100 text-blue-800 hover:bg-blue-100/80";
-      case 'consultant':
-        return "bg-green-100 text-green-800 hover:bg-green-100/80";
-      case 'accounting':
-        return "bg-purple-100 text-purple-800 hover:bg-purple-100/80";
-      default:
-        return "";
-    }
-  };
-
-  const getRoleLabel = (role: string) => {
-    switch (role) {
-      case 'admin':
-        return "Yönetici";
-      case 'technician':
-        return "Teknisyen";
-      case 'consultant':
-        return "Danışman";
-      case 'accounting':
-        return "Muhasebe";
-      default:
-        return role;
-    }
-  };
+  // Component yüklendiğinde tenant listesini getir
+  useEffect(() => {
+    fetchTenants();
+  }, []);
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-4">
-        <h1 className="text-2xl font-bold tracking-tight">Sistem Yönetimi</h1>
-        <p className="text-muted-foreground">
-          Tenant ve kullanıcı yönetimini bu panel üzerinden gerçekleştirebilirsiniz.
-        </p>
-      </div>
+      <h1 className="text-2xl font-bold tracking-tight">Sistem Yönetimi</h1>
 
-      <Tabs defaultValue="tenants" className="space-y-4">
+      <Tabs defaultValue="new-tenant" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="tenants">Tenant Yönetimi</TabsTrigger>
-          <TabsTrigger value="users">Kullanıcı Yönetimi</TabsTrigger>
+          <TabsTrigger value="new-tenant">Yeni Firma Ekle</TabsTrigger>
+          <TabsTrigger value="tenants">Firmalar</TabsTrigger>
         </TabsList>
 
-        {/* Tenant Yönetimi */}
-        <TabsContent value="tenants" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Tenant Listesi</CardTitle>
-                <CardDescription>Sistemde kayıtlı tüm tenant'lar</CardDescription>
-                <div className="flex justify-end">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => refetchTenants()} 
-                    disabled={isLoadingTenants}
-                  >
-                    {isLoadingTenants ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <RefreshCw className="h-4 w-4" />
-                    )}
-                  </Button>
+        <TabsContent value="new-tenant">
+          <Card>
+            <CardHeader>
+              <CardTitle>Yeni Firma ve Yönetici Kullanıcı Ekle</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="companyName">Firma Adı</Label>
+                  <Input
+                    id="companyName"
+                    {...register('companyName', { required: 'Firma adı zorunludur' })}
+                  />
+                  {errors.companyName && <p className="text-sm text-red-500">{errors.companyName.message}</p>}
                 </div>
-              </CardHeader>
-              <CardContent>
-                {isLoadingTenants ? (
-                  <div className="flex justify-center py-8">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                  </div>
-                ) : tenants.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Henüz tenant kaydı bulunmamaktadır.
-                  </div>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Tenant Adı</TableHead>
-                        <TableHead>E-posta</TableHead>
-                        <TableHead>Telefon</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {tenants.map((tenant) => (
-                        <TableRow key={tenant.id}>
-                          <TableCell className="font-medium">{tenant.name}</TableCell>
-                          <TableCell>{tenant.email || "-"}</TableCell>
-                          <TableCell>{tenant.phone || "-"}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Yeni Tenant Oluştur</CardTitle>
-                <CardDescription>
-                  Sisteme yeni bir tenant eklemek için formu doldurun
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Form {...tenantForm}>
-                  <form onSubmit={tenantForm.handleSubmit(onCreateTenant)} className="space-y-4">
-                    <FormField
-                      control={tenantForm.control}
-                      name="name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Tenant Adı*</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Örn: ABC Otomotiv" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName">Yönetici Adı</Label>
+                    <Input
+                      id="firstName"
+                      {...register('firstName', { required: 'Yönetici adı zorunludur' })}
                     />
-                    <FormField
-                      control={tenantForm.control}
-                      name="address"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Adres</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Örn: İstanbul, Türkiye" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                    {errors.firstName && <p className="text-sm text-red-500">{errors.firstName.message}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName">Yönetici Soyadı</Label>
+                    <Input
+                      id="lastName"
+                      {...register('lastName', { required: 'Yönetici soyadı zorunludur' })}
                     />
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={tenantForm.control}
-                        name="phone"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Telefon</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Örn: +90 555 123 4567" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={tenantForm.control}
-                        name="email"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>E-posta</FormLabel>
-                            <FormControl>
-                              <Input 
-                                type="email" 
-                                placeholder="Örn: info@example.com" 
-                                {...field} 
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    <div className="pt-4">
-                      <Button 
-                        type="submit" 
-                        className="w-full"
-                        disabled={isCreatingTenant}
-                      >
-                        {isCreatingTenant ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Oluşturuluyor...
-                          </>
-                        ) : (
-                          <>
-                            <Plus className="mr-2 h-4 w-4" />
-                            Tenant Oluştur
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </form>
-                </Form>
-              </CardContent>
-            </Card>
-          </div>
+                    {errors.lastName && <p className="text-sm text-red-500">{errors.lastName.message}</p>}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="email">E-posta</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    {...register('email', { required: 'E-posta zorunludur' })}
+                  />
+                  {errors.email && <p className="text-sm text-red-500">{errors.email.message}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Telefon</Label>
+                  <Input
+                    id="phone"
+                    {...register('phone')}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="password">Şifre</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    {...register('password', { required: 'Şifre zorunludur', minLength: { value: 8, message: 'Şifre en az 8 karakter olmalıdır' } })}
+                  />
+                  {errors.password && <p className="text-sm text-red-500">{errors.password.message}</p>}
+                </div>
+
+                <Button type="submit" disabled={loading}>
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Ekleniyor...
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="mr-2 h-4 w-4" />
+                      Firma ve Yönetici Ekle
+                    </>
+                  )}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
         </TabsContent>
 
-        {/* Kullanıcı Yönetimi */}
-        <TabsContent value="users" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Kullanıcı Listesi</CardTitle>
-                <CardDescription>Sistemde kayıtlı tüm kullanıcılar</CardDescription>
-                <div className="flex justify-end">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => refetchUsers()} 
-                    disabled={isLoadingUsers}
-                  >
-                    {isLoadingUsers ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <RefreshCw className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {isLoadingUsers ? (
-                  <div className="flex justify-center py-8">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                  </div>
-                ) : users.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Henüz kullanıcı kaydı bulunmamaktadır.
-                  </div>
+        <TabsContent value="tenants">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Firmalar</CardTitle>
+              <Button variant="outline" size="sm" onClick={fetchTenants} disabled={loadingTenants}>
+                {loadingTenants ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>E-posta</TableHead>
-                        <TableHead>Ad Soyad</TableHead>
-                        <TableHead>Rol</TableHead>
-                        <TableHead>Tenant</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {users.map((user) => (
-                        <TableRow key={user.id}>
-                          <TableCell className="font-medium">{user.email}</TableCell>
-                          <TableCell>{user.first_name} {user.last_name}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className={getRoleBadgeColor(user.role)}>
-                              {getRoleLabel(user.role)}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>{user.tenants?.name || "-"}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                  <RefreshCw className="h-4 w-4" />
                 )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Yeni Kullanıcı Oluştur</CardTitle>
-                <CardDescription>
-                  Tenant için yeni bir kullanıcı eklemek için formu doldurun
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Form {...userForm}>
-                  <form onSubmit={userForm.handleSubmit(onCreateUser)} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={userForm.control}
-                        name="firstName"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Ad*</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Örn: Ahmet" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={userForm.control}
-                        name="lastName"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Soyad*</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Örn: Yılmaz" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    <FormField
-                      control={userForm.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>E-posta*</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="email" 
-                              placeholder="Örn: ahmet@example.com" 
-                              {...field} 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={userForm.control}
-                      name="tenantId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Tenant*</FormLabel>
-                          <FormControl>
-                            <select
-                              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
-                              {...field}
-                            >
-                              <option value="">Tenant Seçiniz</option>
-                              {tenants.map((tenant) => (
-                                <option key={tenant.id} value={tenant.id}>
-                                  {tenant.name}
-                                </option>
-                              ))}
-                            </select>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={userForm.control}
-                      name="role"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Rol*</FormLabel>
-                          <FormControl>
-                            <select
-                              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
-                              {...field}
-                            >
-                              <option value="admin">Yönetici</option>
-                              <option value="technician">Teknisyen</option>
-                              <option value="consultant">Danışman</option>
-                              <option value="accounting">Muhasebe</option>
-                            </select>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={userForm.control}
-                      name="tempPassword"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Geçici Şifre*</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="password" 
-                              placeholder="Geçici şifre" 
-                              {...field} 
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            Kullanıcı ilk girişinde bu şifreyi değiştirmek zorunda kalacak.
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <div className="pt-4">
-                      <Button 
-                        type="submit" 
-                        className="w-full"
-                        disabled={isCreatingUser}
-                      >
-                        {isCreatingUser ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Oluşturuluyor...
-                          </>
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {loadingTenants ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : tenants.length === 0 ? (
+                <p className="text-center py-8 text-muted-foreground">Henüz firma bulunmuyor.</p>
+              ) : (
+                <div className="divide-y divide-border">
+                  {tenants.map((tenant) => (
+                    <div key={tenant.id} className="py-4">
+                      <h3 className="font-semibold text-lg">{tenant.name}</h3>
+                      <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">E-posta:</span> {tenant.email || '-'}
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Telefon:</span> {tenant.phone || '-'}
+                        </div>
+                      </div>
+                      <div className="mt-2">
+                        <h4 className="font-medium text-sm">Kullanıcılar</h4>
+                        {tenant.users && tenant.users.length > 0 ? (
+                          <div className="mt-1 space-y-1">
+                            {tenant.users.map((user) => (
+                              <div key={user.id} className="text-sm">
+                                {user.first_name} {user.last_name} ({user.email}) - {user.role}
+                              </div>
+                            ))}
+                          </div>
                         ) : (
-                          <>
-                            <UserPlus className="mr-2 h-4 w-4" />
-                            Kullanıcı Oluştur
-                          </>
+                          <p className="text-sm text-muted-foreground">Kullanıcı bulunmuyor</p>
                         )}
-                      </Button>
+                      </div>
                     </div>
-                  </form>
-                </Form>
-              </CardContent>
-            </Card>
-          </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

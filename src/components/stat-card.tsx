@@ -1,52 +1,69 @@
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import React from "react";
+import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { ArrowDownIcon, ArrowUpIcon } from "lucide-react";
 
-interface StatCardProps {
+export interface StatCardProps {
   title: string;
-  value: string | number;
-  icon: React.ReactNode;
+  value: number;
   description?: string;
+  icon?: React.ReactNode;
   trend?: {
     value: number;
     isPositive: boolean;
     label?: string;
   };
-  className?: string;
+  prefix?: string;
+  suffix?: string;
 }
 
 export function StatCard({
   title,
   value,
-  icon,
   description,
+  icon,
   trend,
-  className,
+  prefix = "",
+  suffix = "",
 }: StatCardProps) {
   return (
-    <Card className={cn("overflow-hidden transition-all duration-200 hover:shadow-md hover:-translate-y-0.5", className)}>
-      <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <div className="w-8 h-8 flex items-center justify-center rounded-md bg-primary/10 text-primary">
-          {icon}
+    <Card>
+      <CardContent className="p-6">
+        <div className="flex items-center justify-between space-x-2">
+          <p className="text-sm font-medium text-muted-foreground">{title}</p>
+          {icon && <div className="h-4 w-4 text-muted-foreground">{icon}</div>}
         </div>
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
-        {description && (
-          <p className="text-xs text-muted-foreground mt-1">{description}</p>
-        )}
+        <div className="mt-2">
+          <p className="text-2xl font-bold">
+            {prefix}
+            {typeof value === 'number' 
+              ? Number(value).toLocaleString('tr-TR')
+              : value}
+            {suffix}
+          </p>
+          {description && (
+            <p className="text-xs text-muted-foreground">{description}</p>
+          )}
+        </div>
         {trend && (
-          <div className="flex items-center mt-2 text-xs">
-            <div
+          <div className="mt-2 flex items-center text-xs">
+            <span
               className={cn(
-                "mr-1",
-                trend.isPositive ? "text-success" : "text-destructive"
+                "inline-flex items-center mr-1",
+                trend.isPositive ? "text-green-500" : "text-red-500"
               )}
             >
-              {trend.isPositive ? "↑" : "↓"} {Math.abs(trend.value)}%
-            </div>
-            <span className="text-muted-foreground">{trend.label || "bu ay"}</span>
+              {trend.isPositive ? (
+                <ArrowUpIcon className="h-3 w-3 mr-0.5" />
+              ) : (
+                <ArrowDownIcon className="h-3 w-3 mr-0.5" />
+              )}
+              {trend.value}%
+            </span>
+            {trend.label && (
+              <span className="text-muted-foreground">{trend.label}</span>
+            )}
           </div>
         )}
       </CardContent>

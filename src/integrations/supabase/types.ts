@@ -654,6 +654,18 @@ export type Database = {
       }
     }
     Functions: {
+      create_tenant_with_user: {
+        Args: {
+          tenant_name: string
+          user_email: string
+          user_password: string
+          user_first_name?: string
+          user_last_name?: string
+          user_phone?: string
+          user_role?: string
+        }
+        Returns: Json
+      }
       get_user_tenant_id: {
         Args: Record<PropertyKey, never>
         Returns: string
