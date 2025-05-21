@@ -2,7 +2,7 @@
 import React from "react";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Customer } from "@/pages/Customers";
+import { Customer } from "@/types/customer";
 import { Eye, Pencil, Trash2 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
@@ -20,7 +20,7 @@ export const CustomerCard = ({ customer, onView, onEdit, onDelete }: CustomerCar
         <div className="space-y-4">
           <div>
             <h3 className="font-poppins font-semibold text-lg">
-              {customer.firstName} {customer.lastName}
+              {customer.firstName || customer.first_name} {customer.lastName || customer.last_name}
             </h3>
             <div className="text-muted-foreground text-sm">
               {customer.vehicleCount} araç
