@@ -13,6 +13,7 @@ import { CustomerCard } from "@/components/customers/CustomerCard";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useSupabaseQuery, useSupabaseCreate, useSupabaseUpdate, useSupabaseDelete } from "@/hooks/use-supabase-query";
 import { useAuth } from "@/contexts/AuthContext";
+import { Customer, normalizeCustomer } from "@/types/customer";
 
 // Define the Customer interface
 export interface Customer {
@@ -57,14 +58,16 @@ const Customers = () => {
   const deleteCustomer = useSupabaseDelete('customers');
 
   // Process customer data to include vehicle count
-  const customers = customersData?.data?.map((customer: any) => ({
-    ...customer,
-    vehicle_count: customer.vehicles?.length || 0,
-    // Add compatibility fields
-    firstName: customer.first_name,
-    lastName: customer.last_name,
-    vehicleCount: customer.vehicles?.length || 0
-  })) || [];
+  const customers: Customer[] = customersData?.data?.map((customer: any) => 
+    normalizeCustomer({
+      ...customer,
+      vehicle_count: customer.vehicles?.length || 0,
+      // Add compatibility fields
+      firstName: customer.first_name,
+      lastName: customer.last_name,
+      vehicleCount: customer.vehicles?.length || 0
+    })
+  ) || [];
 
   // Filter customers based on search term
   const filteredCustomers = customers.filter((customer) =>
@@ -89,14 +92,7 @@ const Customers = () => {
   };
 
   const handleEditCustomer = (customer: Customer) => {
-    // Ensure compatibility fields are set
-    const customerWithCompat = {
-      ...customer,
-      firstName: customer.first_name,
-      lastName: customer.last_name,
-      vehicleCount: customer.vehicle_count || 0
-    };
-    setCurrentCustomer(customerWithCompat);
+    setCurrentCustomer(normalizeCustomer(customer));
     setModalOpen(true);
   };
 

@@ -22,7 +22,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Customer } from "@/types/database.types";
+import { Customer, normalizeCustomer } from "@/types/customer";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 interface CustomerModalProps {
@@ -109,7 +109,12 @@ const formSchema = z.object({
   underWarranty: z.boolean().default(false),
 });
 
-export const CustomerModal = ({ open, onOpenChange, customer, onSave }: CustomerModalProps) => {
+export const CustomerModal: React.FC<CustomerModalProps> = ({
+  open,
+  onOpenChange,
+  customer,
+  onSave,
+}) => {
   const isMobile = useIsMobile();
   const isNewCustomer = !customer;
   
@@ -169,7 +174,7 @@ export const CustomerModal = ({ open, onOpenChange, customer, onSave }: Customer
   }, [customer, form]);
   
   // Handle form submission
-  const onSubmit = (data: z.infer<typeof formSchema>) => {
+  const onSubmit = async (data: any) => {
     const savedCustomer: Customer = {
       id: customer?.id || "temp-id",
       first_name: data.firstName,
@@ -182,7 +187,13 @@ export const CustomerModal = ({ open, onOpenChange, customer, onSave }: Customer
       updated_at: new Date().toISOString(),
     };
     
-    onSave(savedCustomer, isNewCustomer);
+    // Use the normalizeCustomer function to ensure consistent fields
+    const normalizedCustomer = normalizeCustomer({
+      id: customer?.id || '', 
+      ...data
+    });
+    
+    onSave(normalizedCustomer, !customer);
   };
   
   // Selected brand to filter models
