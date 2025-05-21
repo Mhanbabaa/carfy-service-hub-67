@@ -33,7 +33,13 @@ const Login: React.FC = () => {
       // Otherwise, they'll go to /dashboard
     } catch (error: any) {
       console.error("Login error details:", error);
-      setError(error.message || 'Giriş yaparken bir hata oluştu.');
+      
+      // Handle the specific error for "supabase_auth schema does not exist" 
+      if (error.message && error.message.includes("supabase_auth")) {
+        setError("Sistem bakım aşamasındadır. Lütfen daha sonra tekrar deneyin veya yöneticinize başvurun.");
+      } else {
+        setError(error.message || 'Giriş yaparken bir hata oluştu.');
+      }
     } finally {
       setIsSubmitting(false);
     }

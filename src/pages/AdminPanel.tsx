@@ -127,7 +127,7 @@ const AdminPanel = () => {
                     id="companyName"
                     {...register('companyName', { required: 'Firma adı zorunludur' })}
                   />
-                  {errors.companyName && <p className="text-sm text-red-500">{errors.companyName.message}</p>}
+                  {errors.companyName && <p className="text-sm text-red-500">{errors.companyName.message?.toString()}</p>}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -137,7 +137,7 @@ const AdminPanel = () => {
                       id="firstName"
                       {...register('firstName', { required: 'Yönetici adı zorunludur' })}
                     />
-                    {errors.firstName && <p className="text-sm text-red-500">{errors.firstName.message}</p>}
+                    {errors.firstName && <p className="text-sm text-red-500">{errors.firstName.message?.toString()}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="lastName">Yönetici Soyadı</Label>
@@ -145,7 +145,7 @@ const AdminPanel = () => {
                       id="lastName"
                       {...register('lastName', { required: 'Yönetici soyadı zorunludur' })}
                     />
-                    {errors.lastName && <p className="text-sm text-red-500">{errors.lastName.message}</p>}
+                    {errors.lastName && <p className="text-sm text-red-500">{errors.lastName.message?.toString()}</p>}
                   </div>
                 </div>
 
@@ -156,7 +156,7 @@ const AdminPanel = () => {
                     type="email"
                     {...register('email', { required: 'E-posta zorunludur' })}
                   />
-                  {errors.email && <p className="text-sm text-red-500">{errors.email.message}</p>}
+                  {errors.email && <p className="text-sm text-red-500">{errors.email.message?.toString()}</p>}
                 </div>
 
                 <div className="space-y-2">
@@ -174,7 +174,7 @@ const AdminPanel = () => {
                     type="password"
                     {...register('password', { required: 'Şifre zorunludur', minLength: { value: 8, message: 'Şifre en az 8 karakter olmalıdır' } })}
                   />
-                  {errors.password && <p className="text-sm text-red-500">{errors.password.message}</p>}
+                  {errors.password && <p className="text-sm text-red-500">{errors.password.message?.toString()}</p>}
                 </div>
 
                 <Button type="submit" disabled={loading}>

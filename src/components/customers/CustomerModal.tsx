@@ -1,4 +1,3 @@
-
 import React, { useEffect } from "react";
 import {
   Dialog,
@@ -23,7 +22,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Customer } from "@/pages/Customers";
+import { Customer } from "@/types/database.types";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 interface CustomerModalProps {
@@ -137,11 +136,11 @@ export const CustomerModal = ({ open, onOpenChange, customer, onSave }: Customer
   useEffect(() => {
     if (customer) {
       form.reset({
-        firstName: customer.firstName,
-        lastName: customer.lastName,
+        firstName: customer.first_name,
+        lastName: customer.last_name,
         phone: customer.phone,
-        email: customer.email,
-        address: customer.address,
+        email: customer.email || "",
+        address: customer.address || "",
         // In a real app, you would fetch vehicle details for this customer
         licensePlate: "34ABC123",
         chassisNumber: "WVWZZZ1KZAW123456",
@@ -173,12 +172,14 @@ export const CustomerModal = ({ open, onOpenChange, customer, onSave }: Customer
   const onSubmit = (data: z.infer<typeof formSchema>) => {
     const savedCustomer: Customer = {
       id: customer?.id || "temp-id",
-      firstName: data.firstName,
-      lastName: data.lastName,
+      first_name: data.firstName,
+      last_name: data.lastName,
       phone: data.phone,
       email: data.email || "",
       address: data.address || "",
-      vehicleCount: customer?.vehicleCount || 1,
+      tenant_id: customer?.tenant_id || "",
+      created_at: customer?.created_at || new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     };
     
     onSave(savedCustomer, isNewCustomer);
