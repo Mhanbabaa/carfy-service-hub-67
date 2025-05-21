@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,25 +14,8 @@ import { CustomerCard } from "@/components/customers/CustomerCard";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useSupabaseQuery, useSupabaseCreate, useSupabaseUpdate, useSupabaseDelete } from "@/hooks/use-supabase-query";
 import { useAuth } from "@/contexts/AuthContext";
+// Import müşteri tipi ve yardımcı fonksiyonu
 import { Customer, normalizeCustomer } from "@/types/customer";
-
-// Define the Customer interface
-export interface Customer {
-  id: string;
-  first_name: string;
-  last_name: string;
-  phone: string;
-  email: string;
-  address: string;
-  created_at?: string;
-  updated_at?: string;
-  tenant_id?: string;
-  vehicle_count?: number;
-  // Legacy fields for compatibility with existing components
-  firstName?: string;
-  lastName?: string;
-  vehicleCount?: number;
-}
 
 const Customers = () => {
   const isMobile = useIsMobile();
@@ -62,9 +46,6 @@ const Customers = () => {
     normalizeCustomer({
       ...customer,
       vehicle_count: customer.vehicles?.length || 0,
-      // Add compatibility fields
-      firstName: customer.first_name,
-      lastName: customer.last_name,
       vehicleCount: customer.vehicles?.length || 0
     })
   ) || [];
@@ -227,7 +208,7 @@ const Customers = () => {
                 ...customer,
                 firstName: customer.first_name,
                 lastName: customer.last_name,
-                vehicleCount: customer.vehicle_count || 0
+                vehicleCount: customer.vehicleCount || 0
               }}
               onView={() => handleViewCustomer(customer)}
               onEdit={() => handleEditCustomer(customer)}
@@ -263,7 +244,7 @@ const Customers = () => {
                     {customer.address}
                   </TableCell>
                   <TableCell>
-                    {customer.vehicle_count || 0}
+                    {customer.vehicleCount || 0}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">

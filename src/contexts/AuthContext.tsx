@@ -5,6 +5,7 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { User as AppUser } from '@/types/database.types';
 import { toast } from '@/hooks/use-toast';
+import { useSupabaseAuthHooks } from '@/hooks/use-supabase-auth-hooks';
 
 interface AuthContextType {
   session: Session | null;
@@ -33,6 +34,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [userProfile, setUserProfile] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  // Auth hooks entegrasyonu
+  useSupabaseAuthHooks();
 
   useEffect(() => {
     // First set up the auth listener

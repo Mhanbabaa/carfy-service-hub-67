@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -48,21 +47,24 @@ const Signup: React.FC = () => {
     }
 
     try {
-      // Supabase RPC fonksiyonunu kullanarak tenant ve kullanıcı oluştur
-      const { data: result, error: rpcError } = await supabase.rpc('create_tenant_with_user', {
-        tenant_name: companyName,
-        user_email: email,
-        user_password: password,
-        user_first_name: firstName,
-        user_last_name: lastName,
-        user_phone: phone,
-        user_role: 'admin'
+      // Önce kullanıcıyı auth sisteminde oluştur
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            first_name: firstName,
+            last_name: lastName
+          }
+        }
       });
 
-      if (rpcError) {
-        throw rpcError;
+      if (authError) {
+        throw authError;
       }
-
+      
+      // Auth hook, kullanıcı oluşturulduğunda gerekli tenant ve user kayıtlarını otomatik oluşturacak
+      
       // Başarılı kayıt bildirim mesajı
       toast({
         title: 'Kayıt Başarılı',
