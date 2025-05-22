@@ -54,6 +54,59 @@ export type Database = {
           },
         ]
       }
+      car_brands: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      car_models: {
+        Row: {
+          brand_id: string
+          created_at: string | null
+          id: string
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string | null
+          id?: string
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string | null
+          id?: string
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "car_models_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "car_brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           address: string | null
@@ -291,6 +344,51 @@ export type Database = {
           },
         ]
       }
+      service_parts_audit: {
+        Row: {
+          changed_at: string | null
+          changed_by: string | null
+          id: string
+          new_data: Json | null
+          old_data: Json | null
+          operation: string
+          service_part_id: string | null
+        }
+        Insert: {
+          changed_at?: string | null
+          changed_by?: string | null
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          operation: string
+          service_part_id?: string | null
+        }
+        Update: {
+          changed_at?: string | null
+          changed_by?: string | null
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          operation?: string
+          service_part_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_parts_audit_service_part_id_fkey"
+            columns: ["service_part_id"]
+            isOneToOne: false
+            referencedRelation: "service_parts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_parts_audit_service_part_id_fkey"
+            columns: ["service_part_id"]
+            isOneToOne: false
+            referencedRelation: "service_parts_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       services: {
         Row: {
           arrival_date: string | null
@@ -516,7 +614,7 @@ export type Database = {
             foreignKeyName: "vehicles_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
-            referencedRelation: "brands"
+            referencedRelation: "car_brands"
             referencedColumns: ["id"]
           },
           {
@@ -530,7 +628,7 @@ export type Database = {
             foreignKeyName: "vehicles_model_id_fkey"
             columns: ["model_id"]
             isOneToOne: false
-            referencedRelation: "models"
+            referencedRelation: "car_models"
             referencedColumns: ["id"]
           },
           {
@@ -581,6 +679,7 @@ export type Database = {
           brand_name: string | null
           complaint: string | null
           created_at: string | null
+          customer_email: string | null
           customer_name: string | null
           customer_phone: string | null
           delivery_date: string | null
@@ -589,7 +688,6 @@ export type Database = {
           mileage: number | null
           model_name: string | null
           parts_cost: number | null
-          parts_count: number | null
           plate_number: string | null
           status: string | null
           technician_name: string | null
@@ -616,26 +714,99 @@ export type Database = {
           },
         ]
       }
+      service_parts_view: {
+        Row: {
+          created_at: string | null
+          id: string | null
+          part_code: string | null
+          part_name: string | null
+          plate_number: string | null
+          quantity: number | null
+          service_id: string | null
+          service_reference: string | null
+          service_status: string | null
+          tenant_id: string | null
+          total_price: number | null
+          unit_price: number | null
+          updated_at: string | null
+          vehicle_name: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_parts_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "service_details"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_parts_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_parts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "dashboard_stats"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "service_parts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vehicle_details: {
         Row: {
+          brand_id: string | null
           brand_name: string | null
           chassis_number: string | null
           created_at: string | null
           customer_email: string | null
+          customer_id: string | null
           customer_name: string | null
           customer_phone: string | null
           id: string | null
           last_service_date: string | null
           mileage: number | null
+          model_id: string | null
           model_name: string | null
           plate_number: string | null
           service_count: number | null
+          status: string | null
           tenant_id: string | null
           under_warranty: boolean | null
           updated_at: string | null
           year: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "vehicles_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "car_brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicles_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicles_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "car_models"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "vehicles_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -666,20 +837,33 @@ export type Database = {
         }
         Returns: Json
       }
+      get_tenant_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       get_user_tenant_id: {
         Args: Record<PropertyKey, never>
         Returns: string
       }
       setup_user_tenant: {
-        Args: {
-          user_id: string
-          tenant_name: string
-          user_email: string
-          user_first_name?: string
-          user_last_name?: string
-          user_phone?: string
-          user_role?: string
-        }
+        Args:
+          | {
+              user_id: string
+              tenant_name: string
+              user_email: string
+              user_first_name?: string
+              user_last_name?: string
+              user_phone?: string
+              user_role?: string
+            }
+          | {
+              user_id: string
+              tenant_name: string
+              user_email: string
+              user_first_name?: string
+              user_last_name?: string
+              user_role?: string
+            }
         Returns: Json
       }
     }

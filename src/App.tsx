@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -12,6 +13,7 @@ import Dashboard from './pages/Dashboard';
 import Vehicles from './pages/Vehicles';
 import Customers from './pages/Customers';
 import Services from './pages/Services';
+import ServiceDetail from './pages/ServiceDetail';
 import Parts from './pages/Parts';
 import Personnel from './pages/Personnel';
 import Brands from './pages/Brands';
@@ -69,6 +71,7 @@ function App() {
                   <Route path="/vehicles" element={<Vehicles />} />
                   <Route path="/customers" element={<Customers />} />
                   <Route path="/services" element={<Services />} />
+                  <Route path="/services/:id" element={<ServiceDetail />} />
                   <Route path="/parts" element={<Parts />} />
                   <Route path="/personnel" element={<Personnel />} />
                   <Route path="/brands" element={<Brands />} />
