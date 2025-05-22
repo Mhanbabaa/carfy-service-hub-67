@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -54,13 +53,66 @@ const Services = () => {
     queryFn: async () => {
       if (!userProfile?.tenant_id) return [];
       
+      console.log('Fetching services for tenant:', userProfile.tenant_id);
+      
+      // Önce doğrudan services tablosundan veri çekelim
+      const { data: rawServices, error: rawError } = await supabase
+        .from('services')
+        .select('*')
+        .eq('tenant_id', userProfile.tenant_id);
+      
+      if (rawError) {
+        console.error('Error fetching raw services:', rawError);
+      } else {
+        console.log('Raw services data:', rawServices);
+      }
+      
+      // Sonra service_details view'ından veri çekelim
       const { data, error } = await supabase
         .from('service_details')
         .select('*')
         .eq('tenant_id', userProfile.tenant_id);
       
       if (error) {
-        console.error('Error fetching services:', error);
+        console.error('Error fetching services from view:', error);
+        
+        // View'dan veri çekme hata verirse, ham services verilerini kullanalım
+        if (rawServices && rawServices.length > 0) {
+          // Temel service objelerini oluşturalım
+          const basicServices = await Promise.all(rawServices.map(async (item) => {
+            // Servis için araç bilgilerini almaya çalışalım
+            const { data: vehicleData } = await supabase
+              .from('vehicle_details')
+              .select('*')
+              .eq('id', item.vehicle_id)
+              .single();
+              
+            return {
+              id: item.id,
+              plateNumber: vehicleData?.plate_number || 'Bilinmiyor',
+              make: vehicleData?.brand_name || 'Bilinmiyor',
+              model: vehicleData?.model_name || 'Bilinmiyor',
+              year: vehicleData?.year || 0,
+              mileage: vehicleData?.mileage || 0,
+              customerName: vehicleData?.customer_name || 'Bilinmiyor',
+              status: item.status as ServiceStatus,
+              laborCost: Number(item.labor_cost) || 0,
+              partsCost: Number(item.parts_cost) || 0,
+              totalCost: (Number(item.labor_cost) || 0) + (Number(item.parts_cost) || 0),
+              technician: 'Atanmadı',
+              complaint: item.complaint || '',
+              servicePerformed: item.work_done || '',
+              parts: [],
+              history: [],
+              arrivalDate: new Date(item.arrival_date || new Date()),
+              deliveryDate: item.delivery_date ? new Date(item.delivery_date) : undefined
+            };
+          }));
+          
+          console.log('Created basic services from raw data:', basicServices);
+          return basicServices;
+        }
+        
         toast({
           title: "Veri alma hatası",
           description: "Servis işlemleri yüklenirken bir hata oluştu.",
@@ -69,27 +121,34 @@ const Services = () => {
         return [];
       }
       
-      // Map Supabase data to our Service type
-      return data.map(item => ({
-        id: item.id,
-        plateNumber: item.plate_number,
-        make: item.brand_name,
-        model: item.model_name,
-        year: item.year,
-        mileage: item.mileage || 0,
-        customerName: item.customer_name,
-        status: item.status as ServiceStatus,
-        laborCost: Number(item.labor_cost),
-        partsCost: Number(item.parts_cost),
-        totalCost: Number(item.total_cost),
-        technician: item.technician_name,
-        complaint: item.complaint || '',
-        servicePerformed: item.work_done || '',
-        parts: [],
-        history: [],
-        arrivalDate: new Date(item.arrival_date),
-        deliveryDate: item.delivery_date ? new Date(item.delivery_date) : undefined
-      }));
+      console.log('Services from view:', data);
+      
+      // Veri view'dan başarıyla alındı ise service yapısına çevirelim
+      if (data && data.length > 0) {
+        // Map Supabase data to our Service type
+        return data.map(item => ({
+          id: item.id,
+          plateNumber: item.plate_number || 'Bilinmiyor',
+          make: item.brand_name || 'Bilinmiyor',
+          model: item.model_name || 'Bilinmiyor',
+          year: item.year || 0,
+          mileage: item.mileage || 0,
+          customerName: item.customer_name || 'Bilinmiyor',
+          status: item.status as ServiceStatus,
+          laborCost: Number(item.labor_cost) || 0,
+          partsCost: Number(item.parts_cost) || 0,
+          totalCost: Number(item.total_cost) || 0,
+          technician: item.technician_name || 'Atanmadı',
+          complaint: item.complaint || '',
+          servicePerformed: item.work_done || '',
+          parts: [],
+          history: [],
+          arrivalDate: new Date(item.arrival_date || new Date()),
+          deliveryDate: item.delivery_date ? new Date(item.delivery_date) : undefined
+        }));
+      }
+      
+      return [];
     },
     enabled: !!userProfile?.tenant_id,
   });
@@ -146,23 +205,56 @@ const Services = () => {
 
   const handleSave = async (service: Service) => {
     try {
+      console.log("Saving service:", service);
+      
       if (selectedService) {
-        // Update existing service
+        // Update existing service - burada sadece var olduğunu bildiğimiz alanları kullanıyoruz
         const { error } = await supabase
           .from('services')
           .update({
             status: service.status,
-            complaint: service.complaint,
-            work_done: service.servicePerformed,
-            mileage: service.mileage,
             labor_cost: service.laborCost,
             parts_cost: service.partsCost,
-            delivery_date: service.deliveryDate ? service.deliveryDate.toISOString() : null,
             updated_at: new Date().toISOString(),
           })
           .eq('id', service.id);
         
         if (error) throw error;
+        
+        // Also update parts if any
+        if (service.parts && service.parts.length > 0) {
+          // First delete existing parts
+          const { error: deleteError } = await supabase
+            .from('service_parts')
+            .delete()
+            .eq('service_id', service.id);
+          
+          if (deleteError) {
+            console.error('Error deleting parts:', deleteError);
+          }
+            
+          // Then insert new parts one by one to avoid errors
+          for (const part of service.parts) {
+            const { error: insertError } = await supabase
+              .from('service_parts')
+              .insert({
+                id: part.id,
+                service_id: service.id,
+                part_name: part.name,
+                part_code: part.code || '',
+                quantity: part.quantity,
+                unit_price: part.unitPrice,
+                total_price: part.quantity * part.unitPrice,
+                tenant_id: userProfile?.tenant_id,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              });
+              
+            if (insertError) {
+              console.error('Error saving part:', insertError);
+            }
+          }
+        }
         
         toast({
           title: "Servis işlemi güncellendi",
@@ -170,13 +262,73 @@ const Services = () => {
           variant: "default",
         });
       } else {
-        // Add new service - this would require more data like vehicle_id
+        // Use the correct vehicleId property from the service object
+        // This should be a valid UUID from the selected vehicle
+        const vehicleId = service.vehicleId;
+        
+        console.log("Selected vehicle ID:", vehicleId);
+        
+        // Add new service with the required fields
+        const serviceData = {
+          id: service.id,
+          tenant_id: userProfile?.tenant_id,
+          vehicle_id: vehicleId,
+          status: service.status,
+          labor_cost: service.laborCost,
+          parts_cost: service.partsCost,
+          complaint: service.complaint,
+          work_done: service.servicePerformed,
+          technician_id: null, // We'll need to update this if you have technician IDs
+          arrival_date: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        
+        // Debug insert
+        console.log("Inserting service data:", serviceData);
+        
+        const { error } = await supabase
+          .from('services')
+          .insert(serviceData);
+        
+        if (error) {
+          console.error("Service insert error:", error);
+          throw error;
+        }
+        
+        // Also save parts if any
+        if (service.parts && service.parts.length > 0) {
+          // Insert new parts one by one to avoid errors
+          for (const part of service.parts) {
+            const { error: insertError } = await supabase
+              .from('service_parts')
+              .insert({
+                id: part.id,
+                service_id: service.id,
+                part_name: part.name,
+                part_code: part.code || '',
+                quantity: part.quantity,
+                unit_price: part.unitPrice,
+                total_price: part.quantity * part.unitPrice,
+                tenant_id: userProfile?.tenant_id,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              });
+              
+            if (insertError) {
+              console.error('Error saving part:', insertError);
+            }
+          }
+        }
+        
+        // Kaydetme başarılı, hemen veriyi yenileyelim
+        await refetch();
+        
         toast({
-          title: "Uyarı",
-          description: "Yeni servis eklemek için araç seçimi gereklidir. Lütfen önce araç seçiniz.",
+          title: "Servis işlemi oluşturuldu",
+          description: "Yeni servis işlemi başarıyla oluşturuldu.",
           variant: "default",
         });
-        // In a real implementation, we would need to collect vehicle info first
       }
       
       refetch();
@@ -194,6 +346,53 @@ const Services = () => {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount);
   };
+
+  // Debug function to check services table structure
+  useEffect(() => {
+    const checkServicesTable = async () => {
+      if (!userProfile?.tenant_id) return;
+      
+      try {
+        // Örnek veri kontrolü
+        const { data, error } = await supabase
+          .from('services')
+          .select('*')
+          .limit(1);
+        
+        if (error) {
+          console.error('Error fetching service for inspection:', error);
+          return;
+        }
+        
+        if (data && data.length > 0) {
+          console.log('Service table structure sample:', data[0]);
+          // Örnek veriyi kullanarak doğru alanları belirleyelim
+          const sampleKeys = Object.keys(data[0]);
+          console.log('Available service fields:', sampleKeys);
+        } else {
+          console.log('No services found to inspect structure');
+          
+          // Hiç servis yoksa bir servis eklemeliyiz
+          // Service_details view'ını kontrol edelim
+          const { data: viewData, error: viewError } = await supabase
+            .from('service_details')
+            .select('*')
+            .limit(1);
+            
+          if (viewError) {
+            console.error('Error checking service_details view:', viewError);
+          } else if (viewData && viewData.length > 0) {
+            console.log('Service details view sample:', viewData[0]);
+            console.log('Service details fields:', Object.keys(viewData[0]));
+          }
+        }
+      } catch (e) {
+        console.error('Error in checkServicesTable:', e);
+      }
+    };
+    
+    checkServicesTable();
+  }, [userProfile?.tenant_id]);
 
   if (isLoading) {
     return (

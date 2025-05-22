@@ -2,6 +2,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useGetTenantId, withTenantFilter } from '@/lib/tenant-utils';
 
+// Tenant filtering'i atlamak istediğimiz tablolar
+const SKIP_TENANT_TABLES = ['car_brands', 'car_models'];
+
 /**
  * Hook to fetch data from Supabase with tenant isolation
  * @param tableName The table to query
@@ -41,8 +44,10 @@ export const useSupabaseQuery = (
         .from(tableName)
         .select(select);
       
-      // Add tenant filter
-      query = withTenantFilter(query, tenantId);
+      // Add tenant filter only if the table is not in the skip list
+      if (!SKIP_TENANT_TABLES.includes(tableName)) {
+        query = withTenantFilter(query, tenantId);
+      }
       
       // Add custom filters
       Object.entries(filter).forEach(([key, value]) => {
@@ -70,7 +75,7 @@ export const useSupabaseQuery = (
       
       return { data, count };
     },
-    enabled: enabled && !!tenantId,
+    enabled: enabled && (SKIP_TENANT_TABLES.includes(tableName) || !!tenantId),
   });
 };
 

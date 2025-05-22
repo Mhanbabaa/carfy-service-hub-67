@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from './components/theme-provider';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { AdminRoute } from './components/AdminRoute';
 import { Toaster } from './components/ui/toaster';
 import Layout from './components/layout';
 import Login from './pages/Login';
@@ -13,12 +14,14 @@ import Customers from './pages/Customers';
 import Services from './pages/Services';
 import Parts from './pages/Parts';
 import Personnel from './pages/Personnel';
+import Brands from './pages/Brands';
 import AdminPanel from './pages/AdminPanel';
 import ChangePassword from './pages/ChangePassword';
 import Unauthorized from './pages/Unauthorized';
 import NotFound from './pages/NotFound';
 import LandingPage from './pages/LandingPage';
 import Signup from './pages/Signup';
+import Debug from './pages/Debug';
 
 // Initialize the query client
 const queryClient = new QueryClient();
@@ -68,7 +71,17 @@ function App() {
                   <Route path="/services" element={<Services />} />
                   <Route path="/parts" element={<Parts />} />
                   <Route path="/personnel" element={<Personnel />} />
-                  <Route path="/admin" element={<AdminPanel />} />
+                  <Route path="/brands" element={<Brands />} />
+                  <Route path="/debug" element={<Debug />} />
+                </Route>
+              </Route>
+              
+              {/* Admin routes - sadece superadmin erişebilir */}
+              <Route element={<ProtectedRoute />}>
+                <Route element={<AdminRoute />}>
+                  <Route element={<AuthRedirect><Layout /></AuthRedirect>}>
+                    <Route path="/admin" element={<AdminPanel />} />
+                  </Route>
                 </Route>
               </Route>
               

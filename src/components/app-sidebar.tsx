@@ -1,5 +1,4 @@
-
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
   Sidebar,
@@ -45,29 +44,27 @@ function SidebarLink({ to, icon: Icon, label, isActive }: SidebarLinkProps) {
 }
 
 export function AppSidebar() {
-  // We'd typically get the current path from useLocation() to determine active link
-  const currentPath = window.location.pathname;
+  const location = useLocation();
+  const currentPath = location.pathname;
   
   return (
-    <Sidebar>
-      <SidebarHeader className="py-6">
-        <Link to="/" className="flex items-center px-3">
-          <div className="flex items-center gap-2">
-            <CarFront className="h-6 w-6 text-primary" />
-            <h1 className="text-xl font-bold text-primary">Carfy</h1>
-          </div>
-        </Link>
+    <Sidebar className="border-r">
+      <SidebarHeader className="border-b py-4">
+        <div className="px-4 font-semibold text-lg">
+          Carfy Servis Hub
+        </div>
       </SidebarHeader>
-      <SidebarContent>
+      
+      <SidebarContent className="py-3">
         <SidebarGroup>
-          <SidebarGroupLabel>Genel</SidebarGroupLabel>
+          <SidebarGroupLabel>Ana Menü</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarLink 
-                to="/" 
+                to="/dashboard" 
                 icon={Home} 
-                label="Panel" 
-                isActive={currentPath === "/"} 
+                label="Kontrol Paneli" 
+                isActive={currentPath === "/dashboard"} 
               />
               <SidebarLink 
                 to="/vehicles" 
@@ -84,7 +81,7 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-
+        
         <SidebarGroup>
           <SidebarGroupLabel>Servis</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -116,10 +113,10 @@ export function AppSidebar() {
                 isActive={currentPath.startsWith("/personnel")} 
               />
               <SidebarLink 
-                to="/vehicle-models" 
-                icon={Car} 
-                label="Araç Marka-Model" 
-                isActive={currentPath.startsWith("/vehicle-models")} 
+                to="/brands" 
+                icon={CarFront} 
+                label="Marka ve Modeller" 
+                isActive={currentPath.startsWith("/brands")} 
               />
               <SidebarLink 
                 to="/settings" 

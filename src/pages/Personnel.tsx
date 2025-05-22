@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { 
   Table, 
@@ -18,7 +17,6 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { Plus, Search, SlidersHorizontal, Pencil, Trash2 } from "lucide-react";
-import { mockPersonnel } from "@/data/personnel";
 import { Personnel as PersonnelType, getRoleColor, getRoleLabel, getStatusColor, getStatusLabel } from "@/types/personnel";
 import { PersonnelModal } from "@/components/personnel/PersonnelModal";
 import { PersonnelCard } from "@/components/personnel/PersonnelCard";
@@ -37,14 +35,40 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { useSupabaseQuery, useSupabaseCreate, useSupabaseUpdate, useSupabaseDelete } from "@/hooks/use-supabase-query";
 
 const Personnel = () => {
   const isMobile = useIsMobile();
   const { toast } = useToast();
-  const [personnel, setPersonnel] = useState<PersonnelType[]>(mockPersonnel);
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPersonnel, setSelectedPersonnel] = useState<PersonnelType | null>(null);
+
+  // Fetch personnel (users) from Supabase with tenant filter
+  const { data: personnelData, isLoading, refetch } = useSupabaseQuery('users', {
+    orderBy: 'created_at',
+    orderDirection: 'desc',
+    pageSize: 100
+  });
+
+  // Map Supabase users to Personnel type
+  const personnel: PersonnelType[] = (personnelData?.data || []).map(user => ({
+    id: user.id,
+    firstName: user.first_name || '',
+    lastName: user.last_name || '',
+    username: user.email.split('@')[0], // Use email prefix as username
+    email: user.email,
+    phone: user.phone || '',
+    role: user.role as PersonnelType['role'],
+    status: user.status as PersonnelType['status'],
+    createdAt: user.created_at ? new Date(user.created_at) : new Date()
+  }));
+
+  // CRUD operations with Supabase
+  const createPersonnel = useSupabaseCreate('users');
+  const updatePersonnel = useSupabaseUpdate('users');
+  const deletePersonnel = useSupabaseDelete('users');
 
   const filteredPersonnel = personnel.filter(person => 
     person.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -61,13 +85,23 @@ const Personnel = () => {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (personId: string) => {
-    setPersonnel(personnel.filter(person => person.id !== personId));
-    toast({
-      title: "Personel silindi",
-      description: "Personel başarıyla silindi.",
-      variant: "default",
-    });
+  const handleDelete = async (personId: string) => {
+    try {
+      await deletePersonnel.mutateAsync(personId);
+      toast({
+        title: "Personel silindi",
+        description: "Personel başarıyla silindi.",
+        variant: "default",
+      });
+      refetch();
+    } catch (error) {
+      console.error("Error deleting personnel:", error);
+      toast({
+        title: "Hata",
+        description: "Personel silinirken bir hata oluştu.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleAddNew = () => {
@@ -75,25 +109,49 @@ const Personnel = () => {
     setIsModalOpen(true);
   };
 
-  const handleSave = (person: PersonnelType) => {
-    if (selectedPersonnel) {
-      // Update existing personnel
-      setPersonnel(personnel.map(p => p.id === person.id ? person : p));
+  const handleSave = async (person: PersonnelType) => {
+    try {
+      // Convert Personnel type to Supabase user format
+      const userData = {
+        id: person.id,
+        first_name: person.firstName,
+        last_name: person.lastName,
+        email: person.email,
+        phone: person.phone,
+        role: person.role,
+        status: person.status
+      };
+
+      if (selectedPersonnel) {
+        // Update existing personnel
+        await updatePersonnel.mutateAsync({ 
+          id: person.id,
+          data: userData
+        });
+        toast({
+          title: "Personel güncellendi",
+          description: "Personel bilgileri başarıyla güncellendi.",
+          variant: "default",
+        });
+      } else {
+        // Add new personnel
+        await createPersonnel.mutateAsync(userData);
+        toast({
+          title: "Personel eklendi",
+          description: "Yeni personel başarıyla eklendi.",
+          variant: "default",
+        });
+      }
+      refetch();
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error("Error saving personnel:", error);
       toast({
-        title: "Personel güncellendi",
-        description: "Personel bilgileri başarıyla güncellendi.",
-        variant: "default",
-      });
-    } else {
-      // Add new personnel
-      setPersonnel([...personnel, person]);
-      toast({
-        title: "Personel eklendi",
-        description: "Yeni personel başarıyla eklendi.",
-        variant: "default",
+        title: "Hata",
+        description: "Personel kaydedilirken bir hata oluştu.",
+        variant: "destructive",
       });
     }
-    setIsModalOpen(false);
   };
 
   // Role explanation cards

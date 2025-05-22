@@ -1,4 +1,3 @@
-
 import { useToast } from "@/hooks/use-toast";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,8 +26,8 @@ export const useSupabaseAuthHooks = () => {
         const userFirstName = firstName || userData.user?.user_metadata?.first_name || email.split('@')[0];
         const userLastName = lastName || userData.user?.user_metadata?.last_name || '';
         
-        // Tenant adını belirle (kullanıcı adı veya e-posta adresi)
-        const tenantName = `${userFirstName}'s Tenant`;
+        // Tenant adını belirle (firma adı veya kullanıcı adı)
+        const tenantName = userData.user?.user_metadata?.company_name || `${userFirstName}'s Tenant`;
         
         // RPC fonksiyonunu çağır (zaten varsa yeni oluşturmaz)
         const { data, error } = await supabase.rpc('setup_user_tenant', {
@@ -37,6 +36,7 @@ export const useSupabaseAuthHooks = () => {
           user_email: email,
           user_first_name: userFirstName,
           user_last_name: userLastName,
+          user_phone: userData.user?.user_metadata?.phone || '',
           user_role: 'admin'
         });
         

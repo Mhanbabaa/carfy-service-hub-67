@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,17 +28,88 @@ import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { PartsModal } from "@/components/parts/PartsModal";
 import { PartsCard } from "@/components/parts/PartsCard";
-import { mockParts } from "@/data/parts";
 import type { Part } from "@/types/part";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { v4 as uuidv4 } from 'uuid';
 
 const Parts = () => {
   const isMobile = useIsMobile();
   const { toast } = useToast();
+  const { userProfile } = useAuth();
   
-  const [parts, setParts] = useState<Part[]>(mockParts);
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPart, setSelectedPart] = useState<Part | null>(null);
+  const [parts, setParts] = useState<Part[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Servis parçalarını Supabase'den çek
+  const fetchParts = async () => {
+    if (!userProfile?.tenant_id) return;
+    
+    setIsLoading(true);
+    try {
+      console.log('Fetching parts for tenant:', userProfile.tenant_id);
+      
+      // Önce doğrudan service_parts tablosundan parçaları çekelim
+      const { data, error } = await supabase
+        .from('service_parts')
+        .select('*')
+        .eq('tenant_id', userProfile.tenant_id);
+      
+      if (error) {
+        console.error('Error fetching parts:', error);
+        toast({
+          title: "Veri alma hatası",
+          description: "Parçalar yüklenirken bir hata oluştu.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      console.log('Parts data from database:', data);
+      
+      // Servis bilgilerini almak için servis detaylarını çekelim
+      if (data && data.length > 0) {
+        // Part verilerini bizim Part tipine dönüştürelim
+        const formattedParts: Part[] = await Promise.all(data.map(async (item) => {
+          // Servis için araç bilgilerini almaya çalışalım
+          const { data: serviceData } = await supabase
+            .from('service_details')
+            .select('*')
+            .eq('id', item.service_id)
+            .single();
+            
+          return {
+            id: item.id,
+            name: item.part_name,
+            code: item.part_code,
+            quantity: item.quantity,
+            unitPrice: item.unit_price,
+            serviceId: item.service_id || '',
+            serviceReference: serviceData ? 
+              `${serviceData.plate_number || 'Bilinmiyor'} - ${serviceData.brand_name || ''} ${serviceData.model_name || ''}` : 
+              'Bilinmiyor'
+          };
+        }));
+        
+        console.log('Formatted parts with service info:', formattedParts);
+        setParts(formattedParts);
+      } else {
+        setParts([]);
+      }
+    } catch (e) {
+      console.error('Error in fetchParts:', e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Component mount olduğunda ve userProfile değiştiğinde parçaları çek
+  useEffect(() => {
+    fetchParts();
+  }, [userProfile?.tenant_id]);
 
   const filteredParts = parts.filter(part => 
     part.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -59,13 +129,34 @@ const Parts = () => {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (partId: string) => {
-    setParts(parts.filter(part => part.id !== partId));
-    toast({
-      title: "Parça silindi",
-      description: "Parça başarıyla silindi.",
-      variant: "default",
-    });
+  const handleDelete = async (partId: string) => {
+    try {
+      const { error } = await supabase
+        .from('service_parts')
+        .delete()
+        .eq('id', partId)
+        .eq('tenant_id', userProfile?.tenant_id as string);
+      
+      if (error) {
+        throw error;
+      }
+      
+      // Parçayı listeden kaldır
+      setParts(parts.filter(part => part.id !== partId));
+      
+      toast({
+        title: "Parça silindi",
+        description: "Parça başarıyla silindi.",
+        variant: "default",
+      });
+    } catch (error) {
+      console.error("Error deleting part:", error);
+      toast({
+        title: "Hata",
+        description: "Parça silinirken bir hata oluştu.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleAddNew = () => {
@@ -73,25 +164,72 @@ const Parts = () => {
     setIsModalOpen(true);
   };
 
-  const handleSave = (part: Part) => {
-    if (selectedPart) {
-      // Update existing part
-      setParts(parts.map(p => p.id === part.id ? part : p));
+  const handleSave = async (part: Part) => {
+    try {
+      if (selectedPart) {
+        // Update existing part
+        const { error } = await supabase
+          .from('service_parts')
+          .update({
+            part_name: part.name,
+            part_code: part.code,
+            quantity: part.quantity,
+            unit_price: part.unitPrice,
+            total_price: part.quantity * part.unitPrice,
+            service_id: part.serviceId,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', part.id)
+          .eq('tenant_id', userProfile?.tenant_id as string);
+        
+        if (error) {
+          throw error;
+        }
+        
+        toast({
+          title: "Parça güncellendi",
+          description: "Parça bilgileri başarıyla güncellendi.",
+          variant: "default",
+        });
+      } else {
+        // Add new part
+        const { error } = await supabase
+          .from('service_parts')
+          .insert({
+            id: uuidv4(),
+            part_name: part.name,
+            part_code: part.code,
+            quantity: part.quantity,
+            unit_price: part.unitPrice,
+            total_price: part.quantity * part.unitPrice,
+            service_id: part.serviceId,
+            tenant_id: userProfile?.tenant_id,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+        
+        if (error) {
+          throw error;
+        }
+        
+        toast({
+          title: "Parça eklendi",
+          description: "Yeni parça başarıyla eklendi.",
+          variant: "default",
+        });
+      }
+      
+      // Parçaları tekrar yükle
+      fetchParts();
+      setIsModalOpen(false);
+    } catch (error: any) {
+      console.error("Error saving part:", error);
       toast({
-        title: "Parça güncellendi",
-        description: "Parça bilgileri başarıyla güncellendi.",
-        variant: "default",
-      });
-    } else {
-      // Add new part
-      setParts([...parts, part]);
-      toast({
-        title: "Parça eklendi",
-        description: "Yeni parça başarıyla eklendi.",
-        variant: "default",
+        title: "Hata",
+        description: error.message || "Parça kaydedilirken bir hata oluştu.",
+        variant: "destructive",
       });
     }
-    setIsModalOpen(false);
   };
 
   return (
@@ -121,10 +259,13 @@ const Parts = () => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem>Tüm Parçalar</DropdownMenuItem>
-              <DropdownMenuItem>Fiyata Göre (Artan)</DropdownMenuItem>
-              <DropdownMenuItem>Fiyata Göre (Azalan)</DropdownMenuItem>
-              <DropdownMenuItem>Stok Durumuna Göre</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSearchQuery("")}>Tüm Parçalar</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {
+                setParts([...parts].sort((a, b) => a.unitPrice - b.unitPrice));
+              }}>Fiyata Göre (Artan)</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {
+                setParts([...parts].sort((a, b) => b.unitPrice - a.unitPrice));
+              }}>Fiyata Göre (Azalan)</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           <Button onClick={handleAddNew}>
@@ -134,7 +275,11 @@ const Parts = () => {
         </div>
       </div>
 
-      {isMobile ? (
+      {isLoading ? (
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        </div>
+      ) : isMobile ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filteredParts.length > 0 ? (
             filteredParts.map((part) => (
@@ -239,23 +384,6 @@ const Parts = () => {
           </Table>
         </div>
       )}
-
-      <div className="flex justify-between items-center">
-        <div className="text-sm text-muted-foreground">
-          Toplam {filteredParts.length} parça
-        </div>
-        <div className="flex items-center gap-1">
-          <Button variant="outline" size="sm" disabled>
-            Önceki
-          </Button>
-          <Button variant="outline" size="sm" className="bg-primary text-primary-foreground">
-            1
-          </Button>
-          <Button variant="outline" size="sm">
-            Sonraki
-          </Button>
-        </div>
-      </div>
 
       <PartsModal 
         open={isModalOpen}

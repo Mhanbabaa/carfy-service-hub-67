@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Car, 
   Search, 
@@ -10,7 +10,8 @@ import {
   Plus,
   ChevronLeft,
   ChevronRight,
-  Loader2
+  Loader2,
+  User
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,13 @@ import {
 import { cn } from "@/lib/utils";
 import { useSupabaseQuery } from "@/hooks/use-supabase-query";
 import { format } from 'date-fns';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle,
+  DialogFooter 
+} from "@/components/ui/dialog";
 
 // Status badge component
 const StatusBadge = ({ status }: { status: string }) => {
@@ -67,6 +75,8 @@ export default function Vehicles() {
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [showFilters, setShowFilters] = useState(false);
   const [activeFilters, setActiveFilters] = useState<{ [key: string]: string }>({});
+  const [selectedVehicle, setSelectedVehicle] = useState<any>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   // Fetch vehicles from Supabase
   const { data: vehiclesData, isLoading, isError } = useSupabaseQuery(
@@ -79,6 +89,19 @@ export default function Vehicles() {
     }
   );
 
+  // Fetch car brands for filter
+  const { data: brandsData, isLoading: isLoadingBrands } = useSupabaseQuery(
+    'car_brands',
+    {
+      orderBy: 'name',
+      orderDirection: 'asc',
+      pageSize: 100,
+      queryKey: ['car_brands']
+    }
+  );
+  
+  const brands = brandsData?.data || [];
+
   // Filter vehicles based on search query
   const filteredVehicles = vehiclesData?.data
     ? vehiclesData.data.filter((vehicle: any) => {
@@ -86,7 +109,7 @@ export default function Vehicles() {
         
         const searchString = searchQuery.toLowerCase();
         return (
-          vehicle.plate?.toLowerCase().includes(searchString) ||
+          vehicle.plate_number?.toLowerCase().includes(searchString) ||
           vehicle.brand_name?.toLowerCase().includes(searchString) ||
           vehicle.model_name?.toLowerCase().includes(searchString) ||
           vehicle.customer_name?.toLowerCase().includes(searchString)
@@ -120,6 +143,11 @@ export default function Vehicles() {
 
   const clearFilters = () => {
     setActiveFilters({});
+  };
+
+  const openDetails = (vehicle: any) => {
+    setSelectedVehicle(vehicle);
+    setDetailsOpen(true);
   };
 
   return (
@@ -201,10 +229,15 @@ export default function Vehicles() {
                 onChange={(e) => applyFilter("brand", e.target.value)}
               >
                 <option value="">Tüm Markalar</option>
-                <option value="BMW">BMW</option>
-                <option value="Mercedes">Mercedes</option>
-                <option value="Audi">Audi</option>
-                <option value="Volkswagen">Volkswagen</option>
+                {isLoadingBrands ? (
+                  <option value="" disabled>Yükleniyor...</option>
+                ) : (
+                  brands.map((brand: any) => (
+                    <option key={brand.id} value={brand.id}>
+                      {brand.name}
+                    </option>
+                  ))
+                )}
               </select>
             </div>
 
@@ -219,11 +252,14 @@ export default function Vehicles() {
                 onChange={(e) => applyFilter("year", e.target.value)}
               >
                 <option value="">Tüm Yıllar</option>
-                <option value="2023">2023</option>
-                <option value="2022">2022</option>
-                <option value="2021">2021</option>
-                <option value="2020">2020</option>
-                <option value="2019">2019</option>
+                {Array.from({ length: 10 }, (_, i) => {
+                  const year = new Date().getFullYear() - i;
+                  return (
+                    <option key={year} value={year.toString()}>
+                      {year}
+                    </option>
+                  );
+                })}
               </select>
             </div>
 
@@ -277,12 +313,17 @@ export default function Vehicles() {
               <TableBody>
                 {filteredVehicles.map((vehicle: any) => (
                   <TableRow key={vehicle.id}>
-                    <TableCell className="font-medium">{vehicle.plate}</TableCell>
+                    <TableCell className="font-medium">{vehicle.plate_number}</TableCell>
                     <TableCell>
                       {vehicle.brand_name} {vehicle.model_name}
                     </TableCell>
                     <TableCell>{vehicle.year}</TableCell>
-                    <TableCell>{vehicle.customer_name}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center">
+                        <User className="h-4 w-4 mr-2 text-muted-foreground" />
+                        {vehicle.customer_name}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       {vehicle.last_service_date 
                         ? format(new Date(vehicle.last_service_date), 'dd MMM yyyy')
@@ -293,7 +334,11 @@ export default function Vehicles() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon">
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          onClick={() => openDetails(vehicle)}
+                        >
                           <Eye className="h-4 w-4" />
                         </Button>
                         <Button variant="ghost" size="icon">
@@ -351,6 +396,102 @@ export default function Vehicles() {
           </Pagination>
         </div>
       </div>
+
+      {/* Vehicle Details Dialog */}
+      {selectedVehicle && (
+        <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-semibold flex items-center">
+                <Car className="h-5 w-5 mr-2 text-primary" />
+                {selectedVehicle.plate_number}
+              </DialogTitle>
+            </DialogHeader>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
+              {/* Vehicle Info */}
+              <div className="space-y-4">
+                <h3 className="font-medium text-lg">Araç Bilgileri</h3>
+                
+                <div className="space-y-2">
+                  <div className="grid grid-cols-3">
+                    <span className="font-medium text-muted-foreground">Marka:</span>
+                    <span className="col-span-2">{selectedVehicle.brand_name}</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-3">
+                    <span className="font-medium text-muted-foreground">Model:</span>
+                    <span className="col-span-2">{selectedVehicle.model_name}</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-3">
+                    <span className="font-medium text-muted-foreground">Yıl:</span>
+                    <span className="col-span-2">{selectedVehicle.year}</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-3">
+                    <span className="font-medium text-muted-foreground">Şase No:</span>
+                    <span className="col-span-2">{selectedVehicle.chassis_number || 'Belirtilmemiş'}</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-3">
+                    <span className="font-medium text-muted-foreground">Kilometre:</span>
+                    <span className="col-span-2">{selectedVehicle.mileage || 'Belirtilmemiş'}</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-3">
+                    <span className="font-medium text-muted-foreground">Garanti:</span>
+                    <span className="col-span-2">{selectedVehicle.under_warranty ? 'Evet' : 'Hayır'}</span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Customer Info */}
+              <div className="space-y-4">
+                <h3 className="font-medium text-lg">Müşteri Bilgileri</h3>
+                
+                <div className="space-y-2">
+                  <div className="grid grid-cols-3">
+                    <span className="font-medium text-muted-foreground">İsim:</span>
+                    <span className="col-span-2">{selectedVehicle.customer_name}</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-3">
+                    <span className="font-medium text-muted-foreground">Telefon:</span>
+                    <span className="col-span-2">{selectedVehicle.customer_phone || 'Belirtilmemiş'}</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-3">
+                    <span className="font-medium text-muted-foreground">E-posta:</span>
+                    <span className="col-span-2">{selectedVehicle.customer_email || 'Belirtilmemiş'}</span>
+                  </div>
+                </div>
+                
+                <h3 className="font-medium text-lg mt-6">Servis Geçmişi</h3>
+                {selectedVehicle.service_count > 0 ? (
+                  <div>
+                    <p>Toplam {selectedVehicle.service_count} servis kaydı</p>
+                    <p>Son servis: {selectedVehicle.last_service_date 
+                      ? format(new Date(selectedVehicle.last_service_date), 'dd MMM yyyy')
+                      : 'Yok'}</p>
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground">Servis kaydı bulunmamaktadır.</p>
+                )}
+              </div>
+            </div>
+            
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDetailsOpen(false)}>
+                Kapat
+              </Button>
+              <Button variant="default">
+                <Edit className="h-4 w-4 mr-2" /> Düzenle
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

@@ -1,4 +1,3 @@
-
 import { useEffect } from "react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -10,7 +9,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { v4 as uuidv4 } from 'uuid';
 import { Part } from "@/types/part";
-import { mockServices } from "@/data/services";
+import { useSupabaseQuery } from "@/hooks/use-supabase-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useState } from "react";
 
 interface PartsModalProps {
   open: boolean;
@@ -28,6 +30,40 @@ const formSchema = z.object({
 });
 
 export const PartsModal = ({ open, onOpenChange, part, onSave }: PartsModalProps) => {
+  const { userProfile } = useAuth();
+  const [services, setServices] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Service detaylarını yükle
+  useEffect(() => {
+    const fetchServices = async () => {
+      if (!userProfile?.tenant_id) return;
+      
+      setIsLoading(true);
+      try {
+        // Service_details görünümünden yükle (vehicle ve customer detayları var)
+        const { data, error } = await supabase
+          .from('service_details')
+          .select('*')
+          .eq('tenant_id', userProfile.tenant_id);
+          
+        if (error) {
+          console.error('Error fetching services:', error);
+          return;
+        }
+        
+        console.log('Services data from service_details:', data);
+        setServices(data || []);
+      } catch (e) {
+        console.error('Error in fetchServices:', e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchServices();
+  }, [userProfile?.tenant_id, open]);
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -61,7 +97,7 @@ export const PartsModal = ({ open, onOpenChange, part, onSave }: PartsModalProps
   }, [part, form]);
 
   const onSubmit = (data: z.infer<typeof formSchema>) => {
-    const service = mockServices.find(service => service.id === data.serviceId);
+    const service = services.find(service => service.id === data.serviceId);
     if (!service) return;
     
     const updatedPart: Part = {
@@ -71,10 +107,14 @@ export const PartsModal = ({ open, onOpenChange, part, onSave }: PartsModalProps
       quantity: data.quantity,
       unitPrice: data.unitPrice,
       serviceId: data.serviceId,
-      serviceReference: `${service.plateNumber} - ${service.make} ${service.model}`
+      serviceReference: `${service.plate_number || 'Bilinmiyor'} - ${service.brand_name || ''} ${service.model_name || ''}`
     };
     
     onSave(updatedPart);
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount);
   };
 
   return (
@@ -163,17 +203,32 @@ export const PartsModal = ({ open, onOpenChange, part, onSave }: PartsModalProps
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {mockServices.map((service) => (
-                        <SelectItem key={service.id} value={service.id}>
-                          {service.plateNumber} - {service.make} {service.model}
-                        </SelectItem>
-                      ))}
+                      {isLoading ? (
+                        <SelectItem value="loading" disabled>Yükleniyor...</SelectItem>
+                      ) : services.length === 0 ? (
+                        <SelectItem value="empty" disabled>Servis bulunamadı</SelectItem>
+                      ) : (
+                        services.map((service) => (
+                          <SelectItem key={service.id} value={service.id}>
+                            {service.plate_number || 'Plaka Yok'} - {service.brand_name || ''} {service.model_name || ''}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
+
+            <div className="p-4 border rounded-md bg-muted/20">
+              <div className="text-sm font-medium mb-2">Ön İzleme</div>
+              <div className="grid gap-1">
+                <div className="text-muted-foreground text-xs">
+                  Toplam Fiyat: {formatCurrency(form.watch("quantity") * form.watch("unitPrice"))}
+                </div>
+              </div>
+            </div>
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

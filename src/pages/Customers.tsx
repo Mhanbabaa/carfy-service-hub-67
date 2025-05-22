@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +15,7 @@ import { useSupabaseQuery, useSupabaseCreate, useSupabaseUpdate, useSupabaseDele
 import { useAuth } from "@/contexts/AuthContext";
 // Import müşteri tipi ve yardımcı fonksiyonu
 import { Customer, normalizeCustomer } from "@/types/customer";
+import { saveVehicle } from "@/lib/vehicle-utils";
 
 const Customers = () => {
   const isMobile = useIsMobile();
@@ -40,6 +40,8 @@ const Customers = () => {
   const createCustomer = useSupabaseCreate('customers');
   const updateCustomer = useSupabaseUpdate('customers');
   const deleteCustomer = useSupabaseDelete('customers');
+  const createVehicle = useSupabaseCreate('vehicles');
+  const updateVehicle = useSupabaseUpdate('vehicles');
 
   // Process customer data to include vehicle count
   const customers: Customer[] = customersData?.data?.map((customer: any) => 
@@ -86,15 +88,21 @@ const Customers = () => {
 
   const handleSaveCustomer = async (customer: Customer, isNew: boolean) => {
     try {
+      let customerId = customer.id;
+      
+      // Save customer information
       if (isNew) {
         // Add new customer
-        await createCustomer.mutateAsync({
+        const newCustomer = await createCustomer.mutateAsync({
           first_name: customer.firstName || customer.first_name,
           last_name: customer.lastName || customer.last_name,
           phone: customer.phone,
           email: customer.email,
           address: customer.address
         });
+        
+        customerId = newCustomer.id;
+        
         toast({
           title: "Müşteri Eklendi",
           description: "Yeni müşteri başarıyla eklendi.",
@@ -118,10 +126,35 @@ const Customers = () => {
           variant: "default",
         });
       }
+      
+      // Save vehicle information if provided
+      if (customer.vehicle) {
+        try {
+          // Use the saveVehicle utility function, now passing the tenant ID
+          await saveVehicle(customer.vehicle, customerId, userProfile?.tenant_id);
+          
+          toast({
+            title: customer.vehicle.id ? "Araç Güncellendi" : "Araç Eklendi",
+            description: customer.vehicle.id 
+              ? "Araç bilgileri başarıyla güncellendi." 
+              : "Yeni araç başarıyla eklendi.",
+            variant: "default",
+          });
+        } catch (vehicleError: any) {
+          console.error("Araç kaydederken hata:", vehicleError);
+          toast({
+            title: "Araç Hata",
+            description: vehicleError.message || "Araç bilgileri kaydedilirken hata oluştu.",
+            variant: "destructive",
+          });
+        }
+      }
+      
       // Refetch customers to update the list
       refetch();
       setModalOpen(false);
     } catch (error: any) {
+      console.error("Müşteri/araç kaydederken hata:", error);
       toast({
         title: "Hata",
         description: error.message || "İşlem sırasında bir hata oluştu.",

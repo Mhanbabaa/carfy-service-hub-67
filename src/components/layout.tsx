@@ -18,7 +18,9 @@ import {
   Settings, 
   Home, 
   ChevronDown, 
-  Loader2 
+  Loader2,
+  CarFront,
+  Cpu
 } from "lucide-react";
 
 // Navigation items configuration
@@ -28,7 +30,13 @@ const navItems = [
   { path: "/customers", label: "Müşteriler", icon: <Users className="h-5 w-5" /> },
   { path: "/services", label: "Servis İşlemleri", icon: <Wrench className="h-5 w-5" /> },
   { path: "/parts", label: "Servis Parçaları", icon: <Package className="h-5 w-5" /> },
+  { path: "/brands", label: "Marka ve Modeller", icon: <CarFront className="h-5 w-5" /> },
   { path: "/personnel", label: "Personel", icon: <User className="h-5 w-5" /> },
+];
+
+// Debug items (only visible to superadmin)
+const debugItems = [
+  { path: "/debug", label: "Hata Ayıklama", icon: <Cpu className="h-5 w-5" /> }
 ];
 
 const Layout = () => {
@@ -92,6 +100,9 @@ const Layout = () => {
     return <Navigate to="/unauthorized" />;
   }
 
+  // Sadece superadmin rolü varsa yönetim paneline erişim izni ver
+  const isSuperAdmin = userProfile?.role === "superadmin";
+
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Desktop Sidebar */}
@@ -99,7 +110,7 @@ const Layout = () => {
         <div className="flex h-14 items-center gap-2 border-b px-4">
           <div className="flex items-center gap-2 font-semibold">
             <Wrench className="h-5 w-5 text-primary" />
-            <span>Carfy Servis</span>
+            <span>{userProfile?.tenant?.name || 'Servis Merkezi'}</span>
           </div>
         </div>
         <nav className="flex-1 overflow-auto py-4">
@@ -108,7 +119,7 @@ const Layout = () => {
               Servis Merkezi
             </h2>
             <div className="px-4 mb-4">
-              <div className="font-medium">{userProfile?.tenant?.name || 'Servis Merkezi'}</div>
+              <div className="font-medium text-muted-foreground">Carfy Servis</div>
               <div className="text-xs text-muted-foreground">{user?.email}</div>
             </div>
             <Separator className="mb-4" />
@@ -131,7 +142,7 @@ const Layout = () => {
             </div>
           </div>
 
-          {userProfile?.role === "admin" && (
+          {isSuperAdmin && (
             <div className="px-3 py-2">
               <h2 className="mb-2 px-4 text-xs font-semibold tracking-tight text-muted-foreground">
                 Yönetici Araçları
@@ -149,6 +160,23 @@ const Layout = () => {
                   <Settings className="h-5 w-5" />
                   Yönetim Paneli
                 </Link>
+                
+                {/* Debug Items */}
+                {debugItems.map((item) => (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={cn(
+                      "flex items-center gap-3 rounded-md px-4 py-2 text-sm font-medium transition-colors",
+                      pathname === item.path || pathname === item.path + "/"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-foreground hover:bg-muted"
+                    )}
+                  >
+                    {item.icon}
+                    {item.label}
+                  </Link>
+                ))}
               </div>
             </div>
           )}
@@ -181,11 +209,11 @@ const Layout = () => {
               <nav className="flex flex-col gap-5 h-full pb-12">
                 <div className="flex h-14 items-center gap-2 font-semibold">
                   <Wrench className="h-5 w-5 text-primary" />
-                  <span>Carfy Servis</span>
+                  <span>{userProfile?.tenant?.name || 'Servis Merkezi'}</span>
                 </div>
                 <div className="px-2">
                   <div className="mb-2">
-                    <div className="font-medium">{userProfile?.tenant?.name || 'Servis Merkezi'}</div>
+                    <div className="font-medium text-muted-foreground">Carfy Servis</div>
                     <div className="text-xs text-muted-foreground">{user?.email}</div>
                   </div>
                   <Separator className="mb-4" />
@@ -208,7 +236,7 @@ const Layout = () => {
                     ))}
                   </div>
                 </div>
-                {userProfile?.role === "admin" && (
+                {isSuperAdmin && (
                   <div className="px-2">
                     <h2 className="mb-2 px-2 text-xs font-semibold tracking-tight text-muted-foreground">
                       Yönetici Araçları
@@ -227,6 +255,24 @@ const Layout = () => {
                         <Settings className="h-5 w-5" />
                         Yönetim Paneli
                       </Link>
+                      
+                      {/* Debug Items */}
+                      {debugItems.map((item) => (
+                        <Link
+                          key={item.path}
+                          to={item.path}
+                          onClick={() => setMobileMenuOpen(false)}
+                          className={cn(
+                            "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                            pathname === item.path || pathname === item.path + "/"
+                              ? "bg-primary text-primary-foreground"
+                              : "text-foreground hover:bg-muted"
+                          )}
+                        >
+                          {item.icon}
+                          {item.label}
+                        </Link>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -246,12 +292,11 @@ const Layout = () => {
           </Sheet>
           <div className="flex items-center gap-2 font-semibold">
             <Wrench className="h-5 w-5 text-primary" />
-            <span>Carfy Servis</span>
+            <span>{userProfile?.tenant?.name || 'Servis Merkezi'}</span>
           </div>
           <div className="ml-auto flex items-center gap-2">
-            <div className="flex items-center cursor-pointer">
-              <div className="mr-2 text-sm hidden sm:block">{userProfile?.tenant?.name || 'Servis Merkezi'}</div>
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            <div className="flex items-center">
+              <div className="mr-2 text-sm hidden sm:block text-muted-foreground">Carfy Servis</div>
             </div>
             <ModeToggle />
           </div>

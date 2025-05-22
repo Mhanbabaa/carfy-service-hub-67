@@ -54,7 +54,9 @@ const Signup: React.FC = () => {
         options: {
           data: {
             first_name: firstName,
-            last_name: lastName
+            last_name: lastName,
+            company_name: companyName,
+            phone: phone
           }
         }
       });

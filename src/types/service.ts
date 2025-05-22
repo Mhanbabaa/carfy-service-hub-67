@@ -1,4 +1,3 @@
-
 export type ServiceStatus = 
   | "waiting" 
   | "in_progress" 
@@ -24,6 +23,7 @@ export interface ServiceHistory {
 
 export interface Service {
   id: string;
+  vehicleId?: string;
   plateNumber: string;
   make: string;
   model: string;

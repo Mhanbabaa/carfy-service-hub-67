@@ -1,5 +1,18 @@
-
 import { Customer as DatabaseCustomer } from "@/types/database.types";
+
+// Vehicle information interface
+export interface VehicleData {
+  id?: string;
+  licensePlate: string;
+  chassisNumber?: string | null;
+  brand: string;
+  brandId?: string;
+  model: string;
+  modelId?: string;
+  year: string;
+  mileage: string;
+  underWarranty: boolean;
+}
 
 // Extended Customer interface with backward compatibility fields
 export interface Customer extends Omit<DatabaseCustomer, 'tenant_id'> {
@@ -8,6 +21,8 @@ export interface Customer extends Omit<DatabaseCustomer, 'tenant_id'> {
   firstName?: string;
   lastName?: string;
   vehicleCount?: number;
+  // Vehicle data
+  vehicle?: VehicleData;
 }
 
 // Function to convert between naming conventions

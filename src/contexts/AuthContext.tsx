@@ -1,9 +1,8 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { User as AppUser } from '@/types/database.types';
+import { User as AppUser } from '@/types/user';
 import { toast } from '@/hooks/use-toast';
 import { useSupabaseAuthHooks } from '@/hooks/use-supabase-auth-hooks';
 
@@ -54,6 +53,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUserProfile(null);
         }
 
+        // Only show toast and navigate on explicit sign in/out events, not on initial load
         if (event === 'SIGNED_IN') {
           toast({
             title: 'Giriş başarılı',
@@ -69,7 +69,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     );
 
-    // Then check for existing session
+    // Then check for existing session, but don't auto-navigate on initial page load
+    // This fixes the auto-login issue when users visit the landing page
     supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
       setSession(currentSession);
       setUser(currentSession?.user ?? null);

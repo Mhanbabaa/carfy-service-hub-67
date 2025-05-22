@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { Service, ServicePart, ServiceStatus, getStatusLabel } from "@/types/service";
 import { Button } from "@/components/ui/button";
@@ -16,6 +15,9 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { useSupabaseQuery } from "@/hooks/use-supabase-query";
+import { useAuth } from "@/contexts/AuthContext";
+import { Combobox } from "@/components/ui/combobox";
 
 interface ServiceModalProps {
   open: boolean;
@@ -25,12 +27,7 @@ interface ServiceModalProps {
 }
 
 const formSchema = z.object({
-  plateNumber: z.string().min(1, "Plaka no gereklidir"),
-  make: z.string().min(1, "Marka gereklidir"),
-  model: z.string().min(1, "Model gereklidir"),
-  year: z.coerce.number().int().min(1900).max(new Date().getFullYear()),
-  mileage: z.coerce.number().int().min(0),
-  customerName: z.string().min(1, "Müşteri adı gereklidir"),
+  vehicleId: z.string().min(1, "Araç seçiniz"),
   technician: z.string().min(1, "Teknisyen gereklidir"),
   status: z.string().min(1, "Durum gereklidir"),
   laborCost: z.coerce.number().min(0),
@@ -54,16 +51,12 @@ export const ServiceModal = ({
     quantity: 1,
     unitPrice: 0
   });
+  const { userProfile } = useAuth();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      plateNumber: "",
-      make: "",
-      model: "",
-      year: new Date().getFullYear(),
-      mileage: 0,
-      customerName: "",
+      vehicleId: "",
       technician: "",
       status: "waiting",
       laborCost: 0,
@@ -71,17 +64,31 @@ export const ServiceModal = ({
       servicePerformed: "",
     }
   });
+  
+  // Fetch vehicles for dropdown
+  const { data: vehiclesData, isLoading: isLoadingVehicles } = useSupabaseQuery(
+    'vehicle_details',
+    {
+      filter: { tenant_id: userProfile?.tenant_id },
+      enabled: !!userProfile?.tenant_id,
+      queryKey: ['vehicles_dropdown', userProfile?.tenant_id]
+    }
+  );
+  
+  const vehicles = vehiclesData?.data || [];
+  
+  // Get selected vehicle information
+  const selectedVehicleId = form.watch("vehicleId");
+  const selectedVehicle = vehicles.find(v => v.id === selectedVehicleId);
 
   // Update form values when service changes
   useEffect(() => {
     if (service) {
+      // Find the vehicle ID that corresponds to the plate number
+      const vehicleId = vehicles.find(v => v.plate_number === service.plateNumber)?.id || "";
+      
       form.reset({
-        plateNumber: service.plateNumber,
-        make: service.make,
-        model: service.model,
-        year: service.year,
-        mileage: service.mileage,
-        customerName: service.customerName,
+        vehicleId,
         technician: service.technician,
         status: service.status,
         laborCost: service.laborCost,
@@ -91,12 +98,7 @@ export const ServiceModal = ({
       setParts(service.parts);
     } else {
       form.reset({
-        plateNumber: "",
-        make: "",
-        model: "",
-        year: new Date().getFullYear(),
-        mileage: 0,
-        customerName: "",
+        vehicleId: "",
         technician: "",
         status: "waiting",
         laborCost: 0,
@@ -106,7 +108,7 @@ export const ServiceModal = ({
       setParts([]);
     }
     setActiveTab("vehicle");
-  }, [service, form]);
+  }, [service, form, vehicles]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount);
@@ -140,17 +142,23 @@ export const ServiceModal = ({
   };
 
   const onSubmit = (data: FormValues) => {
+    const selectedVehicle = vehicles.find(v => v.id === data.vehicleId);
+    if (!selectedVehicle) {
+      return;
+    }
+    
     const partsCost = calculatePartsCost();
     const totalCost = data.laborCost + partsCost;
     
     const newService: Service = {
       id: service?.id || uuidv4(),
-      plateNumber: data.plateNumber,
-      make: data.make,
-      model: data.model,
-      year: data.year,
-      mileage: data.mileage,
-      customerName: data.customerName,
+      vehicleId: data.vehicleId,
+      plateNumber: selectedVehicle.plate_number,
+      make: selectedVehicle.brand_name,
+      model: selectedVehicle.model_name,
+      year: selectedVehicle.year,
+      mileage: selectedVehicle.mileage,
+      customerName: selectedVehicle.customer_name,
       status: data.status as ServiceStatus,
       laborCost: data.laborCost,
       partsCost,
@@ -182,11 +190,17 @@ export const ServiceModal = ({
     { value: "delivered", label: "Teslim Edildi" },
     { value: "cancelled", label: "İptal Edildi" }
   ];
-  const vehicles = [
-    { plate: "34 AB 123", make: "Toyota", model: "Corolla", year: 2020, customer: "Ayşe Yıldız" },
-    { plate: "06 CD 456", make: "Honda", model: "Civic", year: 2019, customer: "Fatma Çetin" },
-    { plate: "35 EF 789", make: "Ford", model: "Focus", year: 2021, customer: "Zeynep Koç" }
-  ];
+
+  // Total calculation
+  const currentLaborCost = form.watch("laborCost") || 0;
+  const currentPartsCost = calculatePartsCost();
+  const totalCost = Number(currentLaborCost) + Number(currentPartsCost);
+
+  // Create vehicle options for combobox
+  const vehicleOptions = vehicles.map(vehicle => ({
+    value: vehicle.id,
+    label: `${vehicle.plate_number} - ${vehicle.brand_name} ${vehicle.model_name} (${vehicle.customer_name})`
+  }));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -209,109 +223,66 @@ export const ServiceModal = ({
               <TabsContent value="vehicle" className="space-y-6">
                 <div className="space-y-2">
                   <h3 className="text-lg font-poppins font-medium">Araç ve Müşteri Bilgileri</h3>
-                  <p className="text-sm text-muted-foreground">Servis işlemi yapılacak araç ve müşteri bilgilerini girin.</p>
+                  <p className="text-sm text-muted-foreground">Servis işlemi yapılacak araç ve müşteri bilgilerini seçin.</p>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="plateNumber"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Plaka No <span className="text-destructive">*</span></FormLabel>
-                          <FormControl>
-                            <Input 
-                              placeholder="34 ABC 123" 
-                              {...field} 
-                              onChange={(e) => field.onChange(e.target.value.toUpperCase())}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="make"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Marka <span className="text-destructive">*</span></FormLabel>
-                          <FormControl>
-                            <Input placeholder="Toyota" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="model"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Model <span className="text-destructive">*</span></FormLabel>
-                          <FormControl>
-                            <Input placeholder="Corolla" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="year"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Yıl <span className="text-destructive">*</span></FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="number" 
-                              placeholder="2020" 
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="mileage"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Kilometre <span className="text-destructive">*</span></FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="number" 
-                              placeholder="50000" 
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="customerName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Müşteri <span className="text-destructive">*</span></FormLabel>
-                          <FormControl>
-                            <Input placeholder="Ahmet Yılmaz" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                <div className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="vehicleId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Araç Seçimi <span className="text-destructive">*</span></FormLabel>
+                        <FormControl>
+                          <Combobox
+                            options={vehicleOptions}
+                            {...field}
+                            placeholder="Plaka, marka veya müşteriye göre ara..."
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {selectedVehicle && (
+                    <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-muted/40 rounded-md">
+                      <div>
+                        <h4 className="font-medium mb-2">Araç Bilgileri</h4>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Plaka:</span>
+                            <span className="font-medium">{selectedVehicle.plate_number}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Marka/Model:</span>
+                            <span className="font-medium">{selectedVehicle.brand_name} {selectedVehicle.model_name}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Yıl:</span>
+                            <span className="font-medium">{selectedVehicle.year}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Kilometre:</span>
+                            <span className="font-medium">{selectedVehicle.mileage?.toLocaleString() || 0} km</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <h4 className="font-medium mb-2">Müşteri Bilgileri</h4>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Müşteri:</span>
+                            <span className="font-medium">{selectedVehicle.customer_name}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Telefon:</span>
+                            <span className="font-medium">{selectedVehicle.customer_phone || '-'}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </TabsContent>
               
@@ -557,16 +528,27 @@ export const ServiceModal = ({
                       <p className="text-xs text-muted-foreground">Parça toplamı otomatik hesaplanır.</p>
                     </div>
                   </div>
-                  
-                  <div className="bg-muted/50 p-4 rounded-md">
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium">Toplam Tutar:</span>
-                      <span className="text-lg font-semibold">{formatCurrency(form.getValues("laborCost") + calculatePartsCost())}</span>
-                    </div>
-                  </div>
                 </div>
               </TabsContent>
             </Tabs>
+            
+            {/* Total Cost Summary - Always visible at the bottom */}
+            <div className="mt-6 bg-primary/10 p-6 rounded-lg border border-primary/20">
+              <div className="grid grid-cols-3 gap-4">
+                <div className="flex flex-col items-center justify-center">
+                  <span className="text-sm text-muted-foreground">İşçilik Ücreti</span>
+                  <span className="text-lg font-semibold">{formatCurrency(Number(currentLaborCost))}</span>
+                </div>
+                <div className="flex flex-col items-center justify-center">
+                  <span className="text-sm text-muted-foreground">Parça Ücreti</span>
+                  <span className="text-lg font-semibold">{formatCurrency(Number(currentPartsCost))}</span>
+                </div>
+                <div className="flex flex-col items-center justify-center bg-primary/10 p-2 rounded-md">
+                  <span className="text-sm font-medium">TOPLAM</span>
+                  <span className="text-xl font-bold">{formatCurrency(Number(currentLaborCost) + Number(currentPartsCost))}</span>
+                </div>
+              </div>
+            </div>
             
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
