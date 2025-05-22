@@ -133,8 +133,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (data) {
         console.log('User profile retrieved successfully:', data);
         // Convert the database user to our application User type
+        const userRole = data.role as 'admin' | 'technician' | 'consultant' | 'accounting' | 'superadmin';
         const user: User = {
           ...data,
+          role: userRole,
           fullName: getFullName(data)
         };
         setUserProfile(user);

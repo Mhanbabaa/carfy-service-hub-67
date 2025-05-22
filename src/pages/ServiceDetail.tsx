@@ -1,32 +1,96 @@
 
+import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, CalendarDays, Car, Clock, CreditCard, Printer, Tag, User, UserCog, Wrench, X as CloseIcon } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { ArrowLeft, CalendarDays, Car, Clock, CreditCard, Printer, Tag, User, Wrench, X as CloseIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { getServiceById } from "@/data/services";
-import { getStatusColor, getStatusLabel } from "@/types/service";
+import { Service, ServicePart, ServiceDB, mapServiceFromDB, getStatusColor, getStatusLabel } from "@/types/service";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import { Separator } from "@/components/ui/separator";
 import { ServiceModal } from "@/components/services/ServiceModal";
-import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 const ServiceDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { userProfile } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   
-  const service = getServiceById(id || "");
+  // Fetch service details from Supabase
+  const { data: service, isLoading, isError } = useQuery({
+    queryKey: ['service', id, userProfile?.tenant_id],
+    queryFn: async () => {
+      if (!id || !userProfile?.tenant_id) throw new Error('Missing required parameters');
+      
+      console.log('Fetching service with ID:', id);
+      
+      // Get the service details
+      const { data: serviceData, error: serviceError } = await supabase
+        .from('service_details')
+        .select('*')
+        .eq('id', id)
+        .eq('tenant_id', userProfile.tenant_id)
+        .single();
+        
+      if (serviceError) {
+        console.error('Error fetching service details:', serviceError);
+        throw serviceError;
+      }
+      
+      if (!serviceData) {
+        throw new Error('Service not found');
+      }
+      
+      console.log('Service data:', serviceData);
+      
+      // Get service parts
+      const { data: partsData, error: partsError } = await supabase
+        .from('service_parts')
+        .select('*')
+        .eq('service_id', id)
+        .eq('tenant_id', userProfile.tenant_id);
+        
+      if (partsError) {
+        console.error('Error fetching service parts:', partsError);
+      }
+      
+      const parts: ServicePart[] = (partsData || []).map(part => ({
+        id: part.id,
+        name: part.part_name,
+        code: part.part_code,
+        quantity: part.quantity,
+        unitPrice: Number(part.unit_price)
+      }));
+      
+      console.log('Service parts:', parts);
+      
+      // Map the data to our Service type
+      return mapServiceFromDB(serviceData as ServiceDB, parts);
+    },
+    enabled: !!id && !!userProfile?.tenant_id,
+  });
   
-  if (!service) {
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[calc(100vh-200px)]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        <p className="mt-4 text-muted-foreground">Servis bilgileri yükleniyor...</p>
+      </div>
+    );
+  }
+  
+  if (isError || !service) {
     return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-200px)]">
         <h2 className="text-2xl font-poppins font-semibold mb-2">Servis Bulunamadı</h2>
-        <p className="text-muted-foreground mb-4">Aradığınız servis kaydı bulunamadı.</p>
+        <p className="text-muted-foreground mb-4">Aradığınız servis kaydı bulunamadı veya erişim izniniz yok.</p>
         <Button onClick={() => navigate("/services")}>
           <ArrowLeft className="mr-2 h-4 w-4" /> Servis Listesine Dön
         </Button>
@@ -51,12 +115,78 @@ const ServiceDetail = () => {
     });
   };
 
-  const handleCancel = () => {
-    toast({
-      title: "İptal İşlemi",
-      description: "İptal işlemi henüz uygulanmadı.",
-      variant: "default",
-    });
+  const handleCancel = async () => {
+    if (!id || !userProfile?.tenant_id) return;
+    
+    try {
+      const { error } = await supabase
+        .from('services')
+        .update({ 
+          status: 'cancelled',
+          updated_at: new Date().toISOString() 
+        })
+        .eq('id', id)
+        .eq('tenant_id', userProfile.tenant_id);
+        
+      if (error) throw error;
+      
+      toast({
+        title: "İptal İşlemi",
+        description: "Servis işlemi başarıyla iptal edildi.",
+        variant: "default",
+      });
+      
+      // Reload the page to show the updated status
+      window.location.reload();
+    } catch (error) {
+      console.error('Error cancelling service:', error);
+      
+      toast({
+        title: "İptal Hatası",
+        description: "İptal işlemi sırasında bir hata oluştu.",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const handleSave = async (updatedService: Service) => {
+    if (!id || !userProfile?.tenant_id) return;
+    
+    try {
+      // Update the service
+      const { error } = await supabase
+        .from('services')
+        .update({
+          status: updatedService.status,
+          labor_cost: updatedService.laborCost,
+          parts_cost: updatedService.partsCost,
+          complaint: updatedService.complaint,
+          work_done: updatedService.servicePerformed,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .eq('tenant_id', userProfile.tenant_id);
+        
+      if (error) throw error;
+      
+      toast({
+        title: "Servis güncellendi",
+        description: "Servis bilgileri başarıyla güncellendi.",
+        variant: "default",
+      });
+      
+      // Close modal and reload page
+      setIsModalOpen(false);
+      window.location.reload();
+    } catch (error) {
+      console.error('Error updating service:', error);
+      
+      toast({
+        title: "Güncelleme Hatası",
+        description: "Servis güncellenirken bir hata oluştu.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -200,7 +330,7 @@ const ServiceDetail = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm">{service.complaint}</p>
+              <p className="text-sm">{service.complaint || "Belirtilmemiş"}</p>
             </CardContent>
           </Card>
 
@@ -212,7 +342,7 @@ const ServiceDetail = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm">{service.servicePerformed}</p>
+              <p className="text-sm">{service.servicePerformed || "Belirtilmemiş"}</p>
             </CardContent>
           </Card>
         </div>
@@ -226,7 +356,7 @@ const ServiceDetail = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {service.parts.length > 0 ? (
+          {service.parts && service.parts.length > 0 ? (
             <Table>
               <TableHeader className="bg-muted/50">
                 <TableRow>
@@ -293,14 +423,7 @@ const ServiceDetail = () => {
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
         service={service}
-        onSave={() => {
-          setIsModalOpen(false);
-          toast({
-            title: "Servis güncellendi",
-            description: "Servis bilgileri başarıyla güncellendi.",
-            variant: "default",
-          });
-        }}
+        onSave={handleSave}
       />
     </div>
   );

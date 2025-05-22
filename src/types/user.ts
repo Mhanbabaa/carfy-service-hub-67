@@ -21,7 +21,7 @@ export type User = {
     updated_at?: string;
   };
   
-  // Return the user's full name
+  // Full name getter
   fullName: string;
 };
 
