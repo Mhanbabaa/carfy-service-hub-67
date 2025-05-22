@@ -1,3 +1,4 @@
+
 export type ServiceStatus = 
   | "waiting" 
   | "in_progress" 
@@ -32,7 +33,7 @@ export interface ServiceHistoryItem {
 export interface ServiceDB {
   id: string;
   tenant_id: string;
-  vehicle_id: string;
+  vehicle_id?: string;  // Made optional as it might not be in service_details view
   status: ServiceStatus;
   labor_cost: number;
   parts_cost: number;
@@ -52,6 +53,8 @@ export interface ServiceDB {
   year?: number;
   mileage?: number;
   customer_name?: string;
+  customer_phone?: string;
+  customer_email?: string;
   technician_name?: string;
 }
 

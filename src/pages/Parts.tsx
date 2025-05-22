@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -44,7 +45,7 @@ const Parts = () => {
   const [parts, setParts] = useState<Part[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Servis parçalarını Supabase'den çek
+  // Fetch parts from service_parts_view which has service reference info
   const fetchParts = async () => {
     if (!userProfile?.tenant_id) return;
     
@@ -52,9 +53,9 @@ const Parts = () => {
     try {
       console.log('Fetching parts for tenant:', userProfile.tenant_id);
       
-      // Önce doğrudan service_parts tablosundan parçaları çekelim
+      // Use the service_parts_view which includes service details
       const { data, error } = await supabase
-        .from('service_parts')
+        .from('service_parts_view')
         .select('*')
         .eq('tenant_id', userProfile.tenant_id);
       
@@ -68,30 +69,21 @@ const Parts = () => {
         return;
       }
       
-      console.log('Parts data from database:', data);
+      console.log('Parts data from view:', data);
       
-      // Servis bilgilerini almak için servis detaylarını çekelim
+      // Format parts from the view
       if (data && data.length > 0) {
-        // Part verilerini bizim Part tipine dönüştürelim
-        const formattedParts: Part[] = await Promise.all(data.map(async (item) => {
-          // Servis için araç bilgilerini almaya çalışalım
-          const { data: serviceData } = await supabase
-            .from('service_details')
-            .select('*')
-            .eq('id', item.service_id)
-            .single();
-            
-          return {
-            id: item.id,
-            name: item.part_name,
-            code: item.part_code,
-            quantity: item.quantity,
-            unitPrice: item.unit_price,
-            serviceId: item.service_id || '',
-            serviceReference: serviceData ? 
-              `${serviceData.plate_number || 'Bilinmiyor'} - ${serviceData.brand_name || ''} ${serviceData.model_name || ''}` : 
-              'Bilinmiyor'
-          };
+        const formattedParts: Part[] = data.map(item => ({
+          id: item.id,
+          name: item.part_name,
+          code: item.part_code,
+          quantity: item.quantity,
+          unitPrice: Number(item.unit_price),
+          serviceId: item.service_id,
+          serviceReference: item.service_reference || `${item.plate_number || 'Bilinmiyor'} - ${item.vehicle_name || 'Bilinmiyor'}`,
+          servicePlateNumber: item.plate_number,
+          serviceVehicleName: item.vehicle_name,
+          serviceStatus: item.service_status
         }));
         
         console.log('Formatted parts with service info:', formattedParts);
@@ -175,7 +167,6 @@ const Parts = () => {
             part_code: part.code,
             quantity: part.quantity,
             unit_price: part.unitPrice,
-            total_price: part.quantity * part.unitPrice,
             service_id: part.serviceId,
             updated_at: new Date().toISOString()
           })
@@ -201,7 +192,6 @@ const Parts = () => {
             part_code: part.code,
             quantity: part.quantity,
             unit_price: part.unitPrice,
-            total_price: part.quantity * part.unitPrice,
             service_id: part.serviceId,
             tenant_id: userProfile?.tenant_id,
             created_at: new Date().toISOString(),

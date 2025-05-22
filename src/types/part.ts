@@ -7,4 +7,7 @@ export interface Part {
   unitPrice: number;
   serviceId: string;
   serviceReference: string;
+  servicePlateNumber?: string;
+  serviceVehicleName?: string;
+  serviceStatus?: string;
 }

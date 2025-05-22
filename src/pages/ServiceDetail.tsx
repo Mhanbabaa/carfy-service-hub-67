@@ -24,7 +24,7 @@ const ServiceDetail = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   
   // Fetch service details from Supabase
-  const { data: service, isLoading, isError } = useQuery({
+  const { data: service, isLoading, isError, refetch } = useQuery({
     queryKey: ['service', id, userProfile?.tenant_id],
     queryFn: async () => {
       if (!id || !userProfile?.tenant_id) throw new Error('Missing required parameters');
@@ -50,6 +50,35 @@ const ServiceDetail = () => {
       
       console.log('Service data:', serviceData);
       
+      // Manually create a ServiceDB object with the required fields from service_details view
+      const serviceDB: ServiceDB = {
+        id: serviceData.id,
+        tenant_id: serviceData.tenant_id,
+        vehicle_id: serviceData.id, // This might not be accurate, but needed for type conformance
+        status: serviceData.status as any,
+        labor_cost: Number(serviceData.labor_cost),
+        parts_cost: Number(serviceData.parts_cost),
+        total_cost: Number(serviceData.total_cost),
+        complaint: serviceData.complaint || '',
+        work_done: serviceData.work_done || '',
+        arrival_date: serviceData.arrival_date,
+        delivery_date: serviceData.delivery_date,
+        created_at: serviceData.created_at,
+        updated_at: serviceData.updated_at,
+        technician_id: null,
+        
+        // Fields from service_details view
+        plate_number: serviceData.plate_number,
+        brand_name: serviceData.brand_name,
+        model_name: serviceData.model_name,
+        year: serviceData.year,
+        mileage: serviceData.mileage,
+        customer_name: serviceData.customer_name,
+        customer_phone: serviceData.customer_phone,
+        customer_email: serviceData.customer_email,
+        technician_name: serviceData.technician_name
+      };
+      
       // Get service parts
       const { data: partsData, error: partsError } = await supabase
         .from('service_parts')
@@ -72,7 +101,7 @@ const ServiceDetail = () => {
       console.log('Service parts:', parts);
       
       // Map the data to our Service type
-      return mapServiceFromDB(serviceData as ServiceDB, parts);
+      return mapServiceFromDB(serviceDB, parts);
     },
     enabled: !!id && !!userProfile?.tenant_id,
   });
@@ -136,8 +165,8 @@ const ServiceDetail = () => {
         variant: "default",
       });
       
-      // Reload the page to show the updated status
-      window.location.reload();
+      // Reload the data
+      refetch();
     } catch (error) {
       console.error('Error cancelling service:', error);
       
@@ -175,9 +204,9 @@ const ServiceDetail = () => {
         variant: "default",
       });
       
-      // Close modal and reload page
+      // Close modal and reload data
       setIsModalOpen(false);
-      window.location.reload();
+      refetch();
     } catch (error) {
       console.error('Error updating service:', error);
       
