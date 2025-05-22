@@ -1,15 +1,16 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Session } from '@supabase/supabase-js';
+import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { User as AppUser } from '@/types/user';
+import { User, getFullName } from '@/types/user';
 import { toast } from '@/hooks/use-toast';
 import { useSupabaseAuthHooks } from '@/hooks/use-supabase-auth-hooks';
 
 interface AuthContextType {
   session: Session | null;
-  user: User | null;
-  userProfile: AppUser | null;
+  user: SupabaseUser | null;
+  userProfile: User | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<any>;
   signOut: () => Promise<void>;
@@ -29,9 +30,9 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const navigate = useNavigate();
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<SupabaseUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [userProfile, setUserProfile] = useState<AppUser | null>(null);
+  const [userProfile, setUserProfile] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   
   // Auth hooks entegrasyonu
@@ -95,7 +96,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       const { data, error } = await supabase
         .from('users')
-        .select('*, tenants(*)')
+        .select('*, tenant:tenants(*)')
         .eq('id', userId)
         .single();
 
@@ -110,21 +111,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log('Retrieved tenant_id from metadata:', userData.user.app_metadata.tenant_id);
           
           // Tenant ID'yi userData'dan alarak basit bir userProfile objesi oluştur
-          setUserProfile({
+          const user: User = {
             id: userId,
             tenant_id: userData.user.app_metadata.tenant_id,
             email: userData.user.email || '',
             role: userData.user.app_metadata.role || 'user',
-            first_name: userData.user.user_metadata?.first_name || '',
-            last_name: userData.user.user_metadata?.last_name || '',
-          } as AppUser);
+            first_name: userData.user.user_metadata?.first_name || null,
+            last_name: userData.user.user_metadata?.last_name || null,
+            phone: null,
+            fullName: getFullName({
+              first_name: userData.user.user_metadata?.first_name,
+              last_name: userData.user.user_metadata?.last_name,
+              email: userData.user.email || ''
+            })
+          };
+          setUserProfile(user);
         }
         return;
       }
 
       if (data) {
         console.log('User profile retrieved successfully:', data);
-        setUserProfile(data as AppUser);
+        // Convert the database user to our application User type
+        const user: User = {
+          ...data,
+          fullName: getFullName(data)
+        };
+        setUserProfile(user);
       } else {
         console.warn('No user profile data found for user ID:', userId);
       }

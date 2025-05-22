@@ -10,17 +10,30 @@ export type User = {
   status?: string;
   created_at?: string | null;
   updated_at?: string | null;
+  tenant?: {
+    id: string;
+    name: string;
+    address?: string;
+    phone?: string;
+    email?: string;
+    logo_url?: string;
+    created_at?: string;
+    updated_at?: string;
+  };
   
   // Return the user's full name
-  get fullName(): string {
-    if (this.first_name && this.last_name) {
-      return `${this.first_name} ${this.last_name}`;
-    } else if (this.first_name) {
-      return this.first_name;
-    } else if (this.last_name) {
-      return this.last_name;
-    } else {
-      return this.email;
-    }
-  }
+  fullName: string;
 };
+
+// Helper function to get full name from user data
+export function getFullName(user: Pick<User, 'first_name' | 'last_name' | 'email'>): string {
+  if (user.first_name && user.last_name) {
+    return `${user.first_name} ${user.last_name}`;
+  } else if (user.first_name) {
+    return user.first_name;
+  } else if (user.last_name) {
+    return user.last_name;
+  } else {
+    return user.email;
+  }
+}

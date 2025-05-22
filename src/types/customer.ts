@@ -1,3 +1,4 @@
+
 import { Customer as DatabaseCustomer } from "@/types/database.types";
 
 // Vehicle information interface
