@@ -6,6 +6,9 @@ import { Service } from '@/types/service';
 declare module 'jspdf' {
   interface jsPDF {
     autoTable: (options: any) => jsPDF;
+    lastAutoTable: {
+      finalY: number;
+    };
   }
 }
 
@@ -114,7 +117,7 @@ export const generateServiceInvoicePDF = (service: Service): void => {
   }
   
   // Add the table
-  (doc as any).autoTable({
+  doc.autoTable({
     startY: partsY + 5,
     head: [tableColumns],
     body: tableRows,
@@ -126,7 +129,7 @@ export const generateServiceInvoicePDF = (service: Service): void => {
   
   // Total costs section
   // Get the finalY position after the table is drawn
-  const finalY = (doc as any).lastAutoTable.finalY + 15;
+  const finalY = doc.lastAutoTable.finalY + 15;
   
   // Summary of costs
   doc.setFontSize(10);
