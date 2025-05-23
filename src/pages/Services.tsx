@@ -172,6 +172,18 @@ const Services = () => {
 
   const handleDelete = async (serviceId: string) => {
     try {
+      // 1. First, delete all parts associated with this service
+      const { error: partsError } = await supabase
+        .from('service_parts')
+        .delete()
+        .eq('service_id', serviceId);
+      
+      if (partsError) {
+        console.error('Error deleting service parts:', partsError);
+        throw new Error(`Servis parçaları silinirken hata oluştu: ${partsError.message}`);
+      }
+      
+      // 2. Now delete the service itself
       const { error } = await supabase
         .from('services')
         .delete()
@@ -188,11 +200,11 @@ const Services = () => {
         description: "Servis işlemi başarıyla silindi.",
         variant: "default",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting service:', error);
       toast({
         title: "Silme hatası",
-        description: "Servis işlemi silinirken bir hata oluştu.",
+        description: error.message || "Servis işlemi silinirken bir hata oluştu.",
         variant: "destructive",
       });
     }

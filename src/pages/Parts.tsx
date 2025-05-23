@@ -209,6 +209,18 @@ const Parts = () => {
 
   const handleDelete = async (partId: string) => {
     try {
+      // First make sure to remove the part from service_parts_audit to avoid foreign key issues
+      const { error: auditError } = await supabase
+        .from('service_parts_audit')
+        .delete()
+        .eq('service_part_id', partId);
+      
+      if (auditError) {
+        console.error("Error deleting audit records:", auditError);
+        // Continue with deletion attempt even if audit cleanup fails
+      }
+      
+      // Now delete the part itself
       const { error } = await supabase
         .from('service_parts')
         .delete()
@@ -227,11 +239,11 @@ const Parts = () => {
         description: "Parça başarıyla silindi.",
         variant: "default",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting part:", error);
       toast({
         title: "Hata",
-        description: "Parça silinirken bir hata oluştu.",
+        description: error.message || "Parça silinirken bir hata oluştu.",
         variant: "destructive",
       });
     }
