@@ -210,36 +210,51 @@ const Parts = () => {
 
   const handleDelete = async (partId: string) => {
     try {
-      // Step 1: First check if any audit records exist for this part
+      if (!userProfile?.tenant_id) return;
+      
+      console.log('[PARTS] Parça silme işlemi başlatılıyor:', partId);
+      
+      // First check if audit records exist for this part
       const { data: auditRecords, error: checkError } = await supabase
         .from('service_parts_audit')
         .select('id')
         .eq('service_part_id', partId);
       
       if (checkError) {
-        console.error("Error checking audit records:", checkError);
-      } else if (auditRecords && auditRecords.length > 0) {
-        // Step 2: If audit records exist, delete them first
-        const { error: auditError } = await supabase
+        console.error('[PARTS] Audit kayıtları kontrol edilirken hata:', checkError);
+        throw new Error(`Denetim kayıtları kontrol edilirken hata oluştu: ${checkError.message}`);
+      }
+      
+      // If audit records exist, delete them first
+      if (auditRecords && auditRecords.length > 0) {
+        console.log(`[PARTS] ${auditRecords.length} audit kaydı bulundu, siliniyor...`);
+        
+        const { error: auditDeleteError } = await supabase
           .from('service_parts_audit')
           .delete()
           .eq('service_part_id', partId);
         
-        if (auditError) {
-          console.error("Error deleting audit records:", auditError);
-          throw new Error(`Denetim kayıtları silinirken hata oluştu: ${auditError.message}`);
+        if (auditDeleteError) {
+          console.error('[PARTS] Audit kayıtları silinemedi:', auditDeleteError);
+          throw new Error(`Denetim kayıtları silinirken hata oluştu: ${auditDeleteError.message}`);
         }
+        
+        console.log('[PARTS] Audit kayıtları başarıyla silindi');
+      } else {
+        console.log('[PARTS] Bu parça için audit kaydı bulunmadı');
       }
       
-      // Step 3: Now delete the part itself
-      const { error } = await supabase
+      // Now delete the part itself
+      console.log('[PARTS] Parça siliniyor:', partId);
+      const { error: partDeleteError } = await supabase
         .from('service_parts')
         .delete()
         .eq('id', partId)
-        .eq('tenant_id', userProfile?.tenant_id as string);
+        .eq('tenant_id', userProfile.tenant_id);
       
-      if (error) {
-        throw error;
+      if (partDeleteError) {
+        console.error('[PARTS] Parça silinemedi:', partDeleteError);
+        throw new Error(`Parça silinirken hata oluştu: ${partDeleteError.message}`);
       }
       
       // Remove the part from the local state
@@ -250,8 +265,10 @@ const Parts = () => {
         description: "Parça başarıyla silindi.",
         variant: "default",
       });
+      
+      console.log('[PARTS] Parça başarıyla silindi');
     } catch (error: any) {
-      console.error("Error deleting part:", error);
+      console.error('[PARTS] Parça silme işleminde hata:', error);
       toast({
         title: "Hata",
         description: error.message || "Parça silinirken bir hata oluştu.",
