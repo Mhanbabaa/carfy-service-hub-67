@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -34,6 +33,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { v4 as uuidv4 } from 'uuid';
 
+// Using any to avoid deep type instantiation issues with Supabase
+type DbResult = any;
+
 const Parts = () => {
   const isMobile = useIsMobile();
   const { toast } = useToast();
@@ -45,54 +47,117 @@ const Parts = () => {
   const [parts, setParts] = useState<Part[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch parts from service_parts_view which has service reference info
+  // Fetch parts from service_parts table directly
   const fetchParts = async () => {
     if (!userProfile?.tenant_id) return;
     
     setIsLoading(true);
     try {
-      console.log('Fetching parts for tenant:', userProfile.tenant_id);
+      console.log('[PARTS] Parçalar getiriliyor, tenant ID:', userProfile.tenant_id);
       
-      // Use the service_parts_view which includes service details
-      const { data, error } = await supabase
-        .from('service_parts_view')
+      // 1. Tüm parçaları service_parts tablosundan direkt olarak getir
+      const { data: serviceParts, error: partsError } = await supabase
+        .from('service_parts')
         .select('*')
         .eq('tenant_id', userProfile.tenant_id);
       
-      if (error) {
-        console.error('Error fetching parts:', error);
+      if (partsError) {
+        console.error('[PARTS] Parça verileri alınamadı:', partsError);
         toast({
           title: "Veri alma hatası",
           description: "Parçalar yüklenirken bir hata oluştu.",
           variant: "destructive",
         });
+        setIsLoading(false);
         return;
       }
       
-      console.log('Parts data from view:', data);
+      console.log(`[PARTS] ${serviceParts?.length || 0} parça alındı:`, serviceParts);
       
-      // Format parts from the view
-      if (data && data.length > 0) {
-        const formattedParts: Part[] = data.map(item => ({
-          id: item.id,
-          name: item.part_name,
-          code: item.part_code,
-          quantity: item.quantity,
-          unitPrice: Number(item.unit_price),
-          serviceId: item.service_id,
-          serviceReference: item.service_reference || `${item.plate_number || 'Bilinmiyor'} - ${item.vehicle_name || 'Bilinmiyor'}`,
-          servicePlateNumber: item.plate_number,
-          serviceVehicleName: item.vehicle_name,
-          serviceStatus: item.service_status
-        }));
-        
-        console.log('Formatted parts with service info:', formattedParts);
-        setParts(formattedParts);
-      } else {
+      if (!serviceParts || serviceParts.length === 0) {
+        console.log('[PARTS] Hiç parça bulunamadı');
         setParts([]);
+        setIsLoading(false);
+        return;
       }
+      
+      // 2. Tüm servisleri bir kerede getir
+      const { data: services, error: servicesError } = await supabase
+        .from('services')
+        .select('*')
+        .eq('tenant_id', userProfile.tenant_id);
+        
+      if (servicesError) {
+        console.error('[PARTS] Servis verileri alınamadı:', servicesError);
+      }
+      
+      console.log(`[PARTS] ${services?.length || 0} servis alındı`);
+      
+      // 3. Tüm araçları bir kerede getir
+      const { data: vehicles, error: vehiclesError } = await supabase
+        .from('vehicle_details')
+        .select('*')
+        .eq('tenant_id', userProfile.tenant_id);
+        
+      if (vehiclesError) {
+        console.error('[PARTS] Araç verileri alınamadı:', vehiclesError);
+      }
+      
+      console.log(`[PARTS] ${vehicles?.length || 0} araç alındı`);
+      
+      // 4. Servis-Araç eşleştirme haritası oluştur
+      const serviceVehicleMap = new Map<string, {
+        plate_number: string;
+        vehicle_name: string;
+        status: string | null;
+      }>();
+      
+      if (services && vehicles) {
+        services.forEach((service: DbResult) => {
+          const vehicle = vehicles.find((v: DbResult) => v.id === service.vehicle_id);
+          if (vehicle) {
+            serviceVehicleMap.set(service.id, {
+              plate_number: vehicle.plate_number || 'Bilinmiyor',
+              vehicle_name: `${vehicle.brand_name || ''} ${vehicle.model_name || ''}`.trim() || 'Bilinmiyor',
+              status: service.status
+            });
+          }
+        });
+      }
+      
+      console.log('[PARTS] Servis-Araç eşleştirme haritası oluşturuldu');
+      
+      // 5. Parçaları formatla
+      const formattedParts = serviceParts.map((part: DbResult) => {
+        const serviceInfo = serviceVehicleMap.get(part.service_id) || {
+          plate_number: 'Bilinmiyor',
+          vehicle_name: 'Bilinmiyor',
+          status: null
+        };
+        
+        return {
+          id: part.id,
+          name: part.part_name,
+          code: part.part_code || '',
+          quantity: part.quantity,
+          unitPrice: Number(part.unit_price),
+          serviceId: part.service_id,
+          serviceReference: `${serviceInfo.plate_number} - ${serviceInfo.vehicle_name}`,
+          servicePlateNumber: serviceInfo.plate_number,
+          serviceVehicleName: serviceInfo.vehicle_name,
+          serviceStatus: serviceInfo.status
+        };
+      });
+      
+      console.log('[PARTS] Parçalar formatlandı:', formattedParts);
+      setParts(formattedParts);
     } catch (e) {
-      console.error('Error in fetchParts:', e);
+      console.error('[PARTS] fetchParts fonksiyonunda hata:', e);
+      toast({
+        title: "Beklenmeyen hata",
+        description: "Parçalar yüklenirken beklenmeyen bir hata oluştu.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -102,6 +167,27 @@ const Parts = () => {
   useEffect(() => {
     fetchParts();
   }, [userProfile?.tenant_id]);
+
+  // Add an extra effect to refresh the parts list when the page is visited
+  useEffect(() => {
+    // Using the Page Visibility API to detect when the page becomes visible
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchParts();
+      }
+    };
+
+    // Attach event listener for visibility changes
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Refresh on component mount too
+    fetchParts();
+
+    // Cleanup the event listener
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
 
   const filteredParts = parts.filter(part => 
     part.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
