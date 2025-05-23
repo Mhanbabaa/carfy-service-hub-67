@@ -15,6 +15,7 @@ import { tr } from "date-fns/locale";
 import { Separator } from "@/components/ui/separator";
 import { ServiceModal } from "@/components/services/ServiceModal";
 import { useToast } from "@/hooks/use-toast";
+import { generateServiceInvoicePDF } from "@/utils/pdfGenerator";
 
 const ServiceDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -54,7 +55,7 @@ const ServiceDetail = () => {
       const serviceDB: ServiceDB = {
         id: serviceData.id,
         tenant_id: serviceData.tenant_id,
-        vehicle_id: serviceData.id, // This might not be accurate, but needed for type conformance
+        vehicle_id: serviceData.id, // We're using the service ID as vehicle_id to satisfy TypeScript
         status: serviceData.status as any,
         labor_cost: Number(serviceData.labor_cost),
         parts_cost: Number(serviceData.parts_cost),
@@ -137,11 +138,21 @@ const ServiceDetail = () => {
   };
 
   const handlePrint = () => {
-    toast({
-      title: "Yazdırma",
-      description: "Yazdırma özelliği henüz uygulanmadı.",
-      variant: "default",
-    });
+    try {
+      generateServiceInvoicePDF(service);
+      toast({
+        title: "PDF oluşturuldu",
+        description: "Servis faturası başarıyla oluşturuldu ve indirildi.",
+        variant: "default",
+      });
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast({
+        title: "PDF Oluşturma Hatası",
+        description: "Fatura oluşturulurken bir hata oluştu.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleCancel = async () => {

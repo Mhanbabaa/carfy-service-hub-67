@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -209,18 +210,28 @@ const Parts = () => {
 
   const handleDelete = async (partId: string) => {
     try {
-      // First make sure to remove the part from service_parts_audit to avoid foreign key issues
-      const { error: auditError } = await supabase
+      // Step 1: First check if any audit records exist for this part
+      const { data: auditRecords, error: checkError } = await supabase
         .from('service_parts_audit')
-        .delete()
+        .select('id')
         .eq('service_part_id', partId);
       
-      if (auditError) {
-        console.error("Error deleting audit records:", auditError);
-        // Continue with deletion attempt even if audit cleanup fails
+      if (checkError) {
+        console.error("Error checking audit records:", checkError);
+      } else if (auditRecords && auditRecords.length > 0) {
+        // Step 2: If audit records exist, delete them first
+        const { error: auditError } = await supabase
+          .from('service_parts_audit')
+          .delete()
+          .eq('service_part_id', partId);
+        
+        if (auditError) {
+          console.error("Error deleting audit records:", auditError);
+          throw new Error(`Denetim kayıtları silinirken hata oluştu: ${auditError.message}`);
+        }
       }
       
-      // Now delete the part itself
+      // Step 3: Now delete the part itself
       const { error } = await supabase
         .from('service_parts')
         .delete()
@@ -231,7 +242,7 @@ const Parts = () => {
         throw error;
       }
       
-      // Parçayı listeden kaldır
+      // Remove the part from the local state
       setParts(parts.filter(part => part.id !== partId));
       
       toast({

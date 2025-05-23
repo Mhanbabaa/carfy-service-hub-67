@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -172,7 +173,29 @@ const Services = () => {
 
   const handleDelete = async (serviceId: string) => {
     try {
-      // 1. First, delete all parts associated with this service
+      // Step 1: Delete any associated audit records first to avoid foreign key constraints
+      const { data: serviceParts, error: fetchPartsError } = await supabase
+        .from('service_parts')
+        .select('id')
+        .eq('service_id', serviceId);
+      
+      if (fetchPartsError) {
+        console.error('Error fetching service parts:', fetchPartsError);
+      } else if (serviceParts && serviceParts.length > 0) {
+        // Delete audit records for each part
+        for (const part of serviceParts) {
+          const { error: auditError } = await supabase
+            .from('service_parts_audit')
+            .delete()
+            .eq('service_part_id', part.id);
+          
+          if (auditError) {
+            console.error(`Error deleting audit records for part ${part.id}:`, auditError);
+          }
+        }
+      }
+      
+      // Step 2: Delete all parts associated with this service
       const { error: partsError } = await supabase
         .from('service_parts')
         .delete()
@@ -183,7 +206,7 @@ const Services = () => {
         throw new Error(`Servis parçaları silinirken hata oluştu: ${partsError.message}`);
       }
       
-      // 2. Now delete the service itself
+      // Step 3: Now delete the service itself
       const { error } = await supabase
         .from('services')
         .delete()

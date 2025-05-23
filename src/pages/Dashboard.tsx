@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -6,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { DateRange } from 'react-day-picker';
-import { addDays, format, parseISO } from 'date-fns';
+import { addDays, format, parseISO, subDays, startOfMonth, endOfMonth } from 'date-fns';
 import { CarIcon, CreditCardIcon, WrenchIcon, Loader2 } from 'lucide-react';
 import { DateRangePicker } from '@/components/date-range-picker';
 import { RevenueChart } from '@/components/revenue-chart';
@@ -21,6 +22,12 @@ const Dashboard: React.FC = () => {
     from: addDays(new Date(), -30),
     to: new Date(),
   });
+
+  // Function to calculate percentage change
+  const calculatePercentChange = (current: number, previous: number): number => {
+    if (previous === 0) return current > 0 ? 100 : 0;
+    return Math.round(((current - previous) / previous) * 100);
+  };
 
   if (!userProfile) {
     return (
@@ -50,7 +57,14 @@ const Dashboard: React.FC = () => {
       console.log('Dashboard: Running query with tenant ID:', userProfile.tenant_id);
 
       try {
-        // Get active services count
+        // Get date ranges for comparison
+        const today = new Date();
+        const lastWeekStart = subDays(today, 7);
+        const twoWeeksAgoStart = subDays(today, 14);
+        const lastMonthStart = startOfMonth(subDays(today, 30));
+        const twoMonthsAgoStart = startOfMonth(subDays(today, 60));
+        
+        // Get active services count (current)
         const activeServicesQuery = withTenantFilter(
           supabase
             .from('services')
@@ -65,33 +79,61 @@ const Dashboard: React.FC = () => {
           console.error('Error fetching active services:', activeError);
         }
 
-        // Get vehicles delivered this month
-        const startOfMonth = new Date();
-        startOfMonth.setDate(1);
-        startOfMonth.setHours(0, 0, 0, 0);
+        // Get active services count from last week for comparison
+        const lastWeekActiveQuery = withTenantFilter(
+          supabase
+            .from('services')
+            .select('id', { count: 'exact' })
+            .eq('status', 'active')
+            .lt('created_at', lastWeekStart.toISOString()),
+          userProfile.tenant_id
+        );
         
-        const deliveredQuery = withTenantFilter(
+        const { count: lastWeekActive, error: lastWeekActiveError } = await lastWeekActiveQuery;
+        
+        if (lastWeekActiveError) {
+          console.error('Error fetching last week active services:', lastWeekActiveError);
+        }
+
+        // Get vehicles delivered this month
+        const thisMonthStart = startOfMonth(today);
+        const thisMonthEnd = endOfMonth(today);
+        
+        const deliveredThisMonthQuery = withTenantFilter(
           supabase
             .from('services')
             .select('id', { count: 'exact' })
             .eq('status', 'completed')
-            .gte('completed_at', startOfMonth.toISOString()),
+            .gte('updated_at', thisMonthStart.toISOString())
+            .lte('updated_at', thisMonthEnd.toISOString()),
           userProfile.tenant_id
         );
         
-        const { count: deliveredThisMonth, error: deliveredError } = await deliveredQuery;
+        const { count: deliveredThisMonth, error: deliveredThisMonthError } = await deliveredThisMonthQuery;
         
-        if (deliveredError) {
-          console.error('Error fetching delivered vehicles:', deliveredError);
-        }
+        // Get vehicles delivered last month for comparison
+        const lastMonthEnd = endOfMonth(lastMonthStart);
+        
+        const deliveredLastMonthQuery = withTenantFilter(
+          supabase
+            .from('services')
+            .select('id', { count: 'exact' })
+            .eq('status', 'completed')
+            .gte('updated_at', lastMonthStart.toISOString())
+            .lte('updated_at', lastMonthEnd.toISOString()),
+          userProfile.tenant_id
+        );
+        
+        const { count: deliveredLastMonth, error: deliveredLastMonthError } = await deliveredLastMonthQuery;
 
-        // Get revenue data
+        // Get revenue data for this month
         const revenueQuery = withTenantFilter(
           supabase
             .from('services')
-            .select('total_price')
+            .select('labor_cost, parts_cost')
             .eq('status', 'completed')
-            .gte('completed_at', startOfMonth.toISOString()),
+            .gte('updated_at', thisMonthStart.toISOString())
+            .lte('updated_at', thisMonthEnd.toISOString()),
           userProfile.tenant_id
         );
         
@@ -103,19 +145,35 @@ const Dashboard: React.FC = () => {
         
         // Calculate monthly revenue
         const monthlyRevenue = revenueData?.reduce((sum, service) => 
-          sum + (service.total_price || 0), 0) || 0;
+          sum + (Number(service.labor_cost) || 0) + (Number(service.parts_cost) || 0), 0) || 0;
+        
+        // Get last month's revenue for comparison
+        const lastMonthRevenueQuery = withTenantFilter(
+          supabase
+            .from('services')
+            .select('labor_cost, parts_cost')
+            .eq('status', 'completed')
+            .gte('updated_at', lastMonthStart.toISOString())
+            .lte('updated_at', lastMonthEnd.toISOString()),
+          userProfile.tenant_id
+        );
+        
+        const { data: lastMonthRevenueData, error: lastMonthRevenueError } = await lastMonthRevenueQuery;
+        
+        const lastMonthRevenue = lastMonthRevenueData?.reduce((sum, service) => 
+          sum + (Number(service.labor_cost) || 0) + (Number(service.parts_cost) || 0), 0) || 0;
         
         // Get yearly revenue
-        const startOfYear = new Date();
-        startOfYear.setMonth(0, 1);
-        startOfYear.setHours(0, 0, 0, 0);
+        const startOfYear = new Date(today.getFullYear(), 0, 1);
+        const endOfYear = new Date(today.getFullYear(), 11, 31, 23, 59, 59);
         
         const yearlyRevenueQuery = withTenantFilter(
           supabase
             .from('services')
-            .select('total_price')
+            .select('labor_cost, parts_cost')
             .eq('status', 'completed')
-            .gte('completed_at', startOfYear.toISOString()),
+            .gte('updated_at', startOfYear.toISOString())
+            .lte('updated_at', endOfYear.toISOString()),
           userProfile.tenant_id
         );
         
@@ -127,13 +185,42 @@ const Dashboard: React.FC = () => {
         
         // Calculate yearly revenue
         const yearlyRevenue = yearlyRevenueData?.reduce((sum, service) => 
-          sum + (service.total_price || 0), 0) || 0;
+          sum + (Number(service.labor_cost) || 0) + (Number(service.parts_cost) || 0), 0) || 0;
+        
+        // Get last year's revenue for comparison
+        const lastYearStart = new Date(today.getFullYear() - 1, 0, 1);
+        const lastYearEnd = new Date(today.getFullYear() - 1, 11, 31, 23, 59, 59);
+        
+        const lastYearRevenueQuery = withTenantFilter(
+          supabase
+            .from('services')
+            .select('labor_cost, parts_cost')
+            .eq('status', 'completed')
+            .gte('updated_at', lastYearStart.toISOString())
+            .lte('updated_at', lastYearEnd.toISOString()),
+          userProfile.tenant_id
+        );
+        
+        const { data: lastYearRevenueData, error: lastYearRevenueError } = await lastYearRevenueQuery;
+        
+        const lastYearRevenue = lastYearRevenueData?.reduce((sum, service) => 
+          sum + (Number(service.labor_cost) || 0) + (Number(service.parts_cost) || 0), 0) || 0;
+
+        // Calculate percentage changes
+        const activeServicesTrend = calculatePercentChange(activeServices || 0, lastWeekActive || 0);
+        const deliveredTrend = calculatePercentChange(deliveredThisMonth || 0, deliveredLastMonth || 0);
+        const monthlyRevenueTrend = calculatePercentChange(monthlyRevenue, lastMonthRevenue);
+        const yearlyRevenueTrend = calculatePercentChange(yearlyRevenue, lastYearRevenue);
 
         return {
           active_vehicles: activeServices || 0,
           delivered_this_month: deliveredThisMonth || 0,
           monthly_revenue: monthlyRevenue,
           yearly_revenue: yearlyRevenue,
+          activeServicesTrend,
+          deliveredTrend,
+          monthlyRevenueTrend,
+          yearlyRevenueTrend
         };
       } catch (error) {
         console.error('Error fetching dashboard stats:', error);
@@ -141,6 +228,7 @@ const Dashboard: React.FC = () => {
       }
     },
     enabled: !!userProfile?.tenant_id && !!dateRange?.from && !!dateRange?.to,
+    refetchInterval: 60000, // Refresh data every minute
   });
 
   const { data: monthlyRevenueData, isLoading: revenueLoading } = useQuery({
@@ -177,10 +265,10 @@ const Dashboard: React.FC = () => {
       const revenueQuery = withTenantFilter(
         supabase
           .from('services')
-          .select('completed_at, total_price')
+          .select('updated_at, labor_cost, parts_cost')
           .eq('status', 'completed')
-          .gte('completed_at', startDate)
-          .lte('completed_at', endDate),
+          .gte('updated_at', startDate)
+          .lte('updated_at', endDate),
         userProfile.tenant_id
       );
       
@@ -193,16 +281,18 @@ const Dashboard: React.FC = () => {
       
       // Aggregate revenue by month
       servicesData?.forEach(service => {
-        if (service.completed_at && service.total_price) {
-          const date = parseISO(service.completed_at);
+        if (service.updated_at) {
+          const date = parseISO(service.updated_at);
           const month = date.getMonth();
-          result[month].total += service.total_price;
+          const totalServiceRevenue = (Number(service.labor_cost) || 0) + (Number(service.parts_cost) || 0);
+          result[month].total += totalServiceRevenue;
         }
       });
       
       return result;
     },
     enabled: !!userProfile?.tenant_id && !!dateRange?.from && !!dateRange?.to,
+    refetchInterval: 60000, // Refresh data every minute
   });
 
   return (
@@ -234,8 +324,8 @@ const Dashboard: React.FC = () => {
                 description="Devam eden servis işlemleri"
                 icon={<WrenchIcon className="h-4 w-4 text-muted-foreground" />}
                 trend={{
-                  value: 12,
-                  isPositive: true,
+                  value: stats?.activeServicesTrend || 0,
+                  isPositive: (stats?.activeServicesTrend || 0) >= 0,
                   label: "geçen haftadan"
                 }}
               />
@@ -245,8 +335,8 @@ const Dashboard: React.FC = () => {
                 description="Teslim edilen araçlar"
                 icon={<CarIcon className="h-4 w-4 text-muted-foreground" />}
                 trend={{
-                  value: 3,
-                  isPositive: false,
+                  value: Math.abs(stats?.deliveredTrend || 0),
+                  isPositive: (stats?.deliveredTrend || 0) >= 0,
                   label: "geçen aydan"
                 }}
               />
@@ -256,10 +346,11 @@ const Dashboard: React.FC = () => {
                 description="Bu ayki toplam gelir"
                 icon={<CreditCardIcon className="h-4 w-4 text-muted-foreground" />}
                 trend={{
-                  value: 2.5,
-                  isPositive: true,
+                  value: Math.abs(stats?.monthlyRevenueTrend || 0),
+                  isPositive: (stats?.monthlyRevenueTrend || 0) >= 0,
                   label: "geçen aydan"
                 }}
+                prefix="₺"
               />
               <StatCard
                 title="Yıllık Gelir"
@@ -267,10 +358,11 @@ const Dashboard: React.FC = () => {
                 description="Bu yılki toplam gelir"
                 icon={<CreditCardIcon className="h-4 w-4 text-muted-foreground" />}
                 trend={{
-                  value: 4.3,
-                  isPositive: true,
+                  value: Math.abs(stats?.yearlyRevenueTrend || 0),
+                  isPositive: (stats?.yearlyRevenueTrend || 0) >= 0,
                   label: "geçen yıldan"
                 }}
+                prefix="₺"
               />
             </div>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
