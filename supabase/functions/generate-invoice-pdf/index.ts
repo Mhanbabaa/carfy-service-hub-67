@@ -99,39 +99,11 @@ serve(async (req) => {
       }))
     })
 
-    // Convert HTML to PDF using Puppeteer
-    const response = await fetch('https://api.htmlcsstoimage.com/v1/image', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Basic ' + btoa(Deno.env.get('HTMLCSS_API_KEY') + ':')
-      },
-      body: JSON.stringify({
-        html: html,
-        css: getInvoiceCSS(),
-        format: 'pdf',
-        width: 794,
-        height: 1123
-      })
-    })
-
-    if (!response.ok) {
-      // Fallback: return HTML content for browser printing
-      return new Response(html, {
-        headers: { 
-          ...corsHeaders, 
-          'Content-Type': 'text/html; charset=utf-8' 
-        }
-      })
-    }
-
-    const pdfBuffer = await response.arrayBuffer()
-
-    return new Response(pdfBuffer, {
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="fatura_${serviceData.plate_number?.replace(/\s+/g, '') || 'servis'}.pdf"`
+    // Fallback: return HTML content for browser printing
+    return new Response(html, {
+      headers: { 
+        ...corsHeaders, 
+        'Content-Type': 'text/html; charset=utf-8' 
       }
     })
 
@@ -148,41 +120,48 @@ serve(async (req) => {
 })
 
 function generateInvoiceHTML(service: ServiceData): string {
-  const currentDate = new Date().toLocaleDateString('tr-TR')
-  const arrivalDate = new Date(service.arrivalDate).toLocaleDateString('tr-TR')
-  const taxAmount = service.totalCost * 0.18
-  const totalWithTax = service.totalCost * 1.18
+  const currentDate = new Date().toLocaleDateString('tr-TR', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric'
+  })
+  const arrivalDate = new Date(service.arrivalDate).toLocaleDateString('tr-TR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  })
+  
+  // KDV %20 olarak hesaplama
+  const taxRate = 0.20;
+  const subtotal = service.totalCost / (1 + taxRate);
+  const taxAmount = service.totalCost - subtotal;
 
   return `
     <!DOCTYPE html>
     <html>
     <head>
       <meta charset="utf-8">
-      <title>Servis Faturası</title>
+      <title>Fatura</title>
+      <style>
+        ${getInvoiceCSS()}
+      </style>
     </head>
     <body>
       <div class="invoice">
         <!-- Header -->
         <div class="header">
           <div class="company-info">
-            <h1>CARFY OTOSERVIS</h1>
-            <div class="company-details">
-              <p>Carfy Plaza No:123, Istanbul</p>
-              <p>0212 123 45 67</p>
-              <p>info@carfy.com</p>
-            </div>
+            <h1>${service.customerName}</h1>
           </div>
           <div class="invoice-info">
             <h2>FATURA</h2>
-            <p><strong>Fatura No:</strong> ${service.id.substring(0, 8)}</p>
+            <p><strong>Fatura No:</strong> ${service.id.substring(0, 3).padStart(3, '0')}</p>
             <p><strong>Düzenlenme Tarihi:</strong> ${currentDate}</p>
           </div>
         </div>
 
-        <div class="separator"></div>
-
         <!-- Customer Info -->
-        <div class="section">
+        <div class="customer-section">
           <h3>ALICI BİLGİLERİ</h3>
           <p><strong>${service.customerName}</strong></p>
           <p>${service.plateNumber} - ${service.make} ${service.model}</p>
@@ -190,76 +169,61 @@ function generateInvoiceHTML(service: ServiceData): string {
           <p>Geliş Tarihi: ${arrivalDate}</p>
         </div>
 
-        <!-- Parts and Labor -->
-        <div class="section">
-          <h3>PARÇA VE İŞÇİLİK BİLGİLERİ</h3>
-          <table class="items-table">
-            <thead>
+        <!-- Parts Table -->
+        <table class="items-table">
+          <thead>
+            <tr>
+              <th>AÇIKLAMA</th>
+              <th>MIKTAR</th>
+              <th>KDV</th>
+              <th>BİRİM FİYATI</th>
+              <th>TOPLAM</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${service.parts.map(part => {
+              const partSubtotal = (part.quantity * part.unitPrice) / (1 + taxRate);
+              return `
               <tr>
-                <th>AÇIKLAMA</th>
-                <th>MIKTAR</th>
-                <th>KDV</th>
-                <th>BİRİM FİYATI</th>
-                <th>TOPLAM</th>
+                <td>${part.name}</td>
+                <td>${part.quantity}</td>
+                <td>%20</td>
+                <td>${partSubtotal.toFixed(2)} TL</td>
+                <td>${(part.quantity * part.unitPrice).toFixed(2)} TL</td>
               </tr>
-            </thead>
-            <tbody>
-              ${service.parts.map(part => `
-                <tr>
-                  <td>${part.name}</td>
-                  <td>${part.quantity}</td>
-                  <td>%18</td>
-                  <td>${part.unitPrice.toFixed(2)} TL</td>
-                  <td>${(part.quantity * part.unitPrice).toFixed(2)} TL</td>
-                </tr>
-              `).join('')}
-              ${service.laborCost > 0 ? `
-                <tr>
-                  <td>İşçilik</td>
-                  <td>1</td>
-                  <td>%18</td>
-                  <td>${service.laborCost.toFixed(2)} TL</td>
-                  <td>${service.laborCost.toFixed(2)} TL</td>
-                </tr>
-              ` : ''}
-              ${service.parts.length === 0 && service.laborCost === 0 ? `
-                <tr>
-                  <td colspan="5" style="text-align: center;">Parça veya işçilik bulunmamaktadır</td>
-                </tr>
-              ` : ''}
-            </tbody>
-          </table>
-        </div>
+              `;
+            }).join('')}
+            ${service.laborCost > 0 ? `
+              <tr>
+                <td>Yağ</td>
+                <td>1</td>
+                <td>%20</td>
+                <td>${(service.laborCost / (1 + taxRate)).toFixed(2)} TL</td>
+                <td>${service.laborCost.toFixed(2)} TL</td>
+              </tr>
+            ` : ''}
+            ${service.parts.length === 0 && service.laborCost === 0 ? `
+              <tr>
+                <td colspan="5" style="text-align: center;">Parça veya işçilik bulunmamaktadır</td>
+              </tr>
+            ` : ''}
+          </tbody>
+        </table>
 
         <!-- Summary -->
         <div class="summary">
           <div class="summary-row">
             <span>ARA TOPLAM :</span>
-            <span>${service.totalCost.toFixed(2)} TL</span>
+            <span>${subtotal.toFixed(2)} TL</span>
           </div>
           <div class="summary-row">
             <span>VERGİLER :</span>
             <span>${taxAmount.toFixed(2)} TL</span>
           </div>
-          <div class="summary-separator"></div>
           <div class="summary-row total">
             <span><strong>TOPLAM FİYAT :</strong></span>
-            <span><strong>${totalWithTax.toFixed(2)} TL</strong></span>
+            <span><strong>${service.totalCost.toFixed(2)} TL</strong></span>
           </div>
-        </div>
-
-        <!-- Payment Info -->
-        <div class="section">
-          <h3>ÖDEME BİLGİSİ</h3>
-          <p>Hesap Adı: CARFY OTOSERVIS</p>
-          <p>Hesap No: 123 456 7890</p>
-          <p>Ödeme Vadesi: Araç tesliminde</p>
-        </div>
-
-        <!-- Footer -->
-        <div class="footer">
-          <p>Bu belge bilgi amaçlıdır ve yasal fatura yerine geçmez.</p>
-          <p>CARFY Oto Servis Yönetim Sistemi ile oluşturulmuştur.</p>
         </div>
       </div>
     </body>
@@ -269,13 +233,18 @@ function generateInvoiceHTML(service: ServiceData): string {
 
 function getInvoiceCSS(): string {
   return `
-    body {
+    * {
       margin: 0;
-      padding: 20px;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
       font-family: Arial, sans-serif;
       font-size: 12px;
       line-height: 1.4;
-      color: #333;
+      color: #000;
+      padding: 20px;
     }
 
     .invoice {
@@ -288,17 +257,14 @@ function getInvoiceCSS(): string {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      margin-bottom: 20px;
+      margin-bottom: 40px;
     }
 
     .company-info h1 {
-      margin: 0 0 10px 0;
-      font-size: 20px;
+      font-size: 24px;
       font-weight: bold;
-    }
-
-    .company-details p {
-      margin: 2px 0;
+      color: #000;
+      margin: 0;
     }
 
     .invoice-info {
@@ -306,121 +272,79 @@ function getInvoiceCSS(): string {
     }
 
     .invoice-info h2 {
-      margin: 0 0 10px 0;
-      font-size: 16px;
+      font-size: 18px;
       font-weight: bold;
+      margin: 0 0 10px 0;
     }
 
     .invoice-info p {
-      margin: 2px 0;
-    }
-
-    .separator {
-      height: 1px;
-      background-color: #ccc;
-      margin: 20px 0;
-    }
-
-    .section {
-      margin-bottom: 25px;
-    }
-
-    .section h3 {
-      margin: 0 0 15px 0;
+      margin: 5px 0;
       font-size: 12px;
-      font-weight: bold;
     }
 
-    .section p {
-      margin: 3px 0;
+    .customer-section {
+      margin-bottom: 30px;
+    }
+
+    .customer-section h3 {
+      font-size: 14px;
+      font-weight: bold;
+      margin-bottom: 15px;
+    }
+
+    .customer-section p {
+      margin: 5px 0;
+      font-size: 12px;
     }
 
     .items-table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 10px;
+      margin-bottom: 30px;
     }
 
     .items-table th,
     .items-table td {
-      border: 1px solid #ccc;
+      border: 1px solid #000;
       padding: 8px;
       text-align: left;
+      font-size: 11px;
     }
 
     .items-table th {
-      background-color: #505050;
-      color: white;
+      background-color: #f0f0f0;
       font-weight: bold;
-      font-size: 9px;
+      text-align: center;
     }
 
-    .items-table td {
-      font-size: 9px;
-    }
-
-    .items-table th:nth-child(2),
     .items-table td:nth-child(2),
-    .items-table th:nth-child(3),
     .items-table td:nth-child(3) {
       text-align: center;
-      width: 80px;
     }
 
-    .items-table th:nth-child(4),
     .items-table td:nth-child(4),
-    .items-table th:nth-child(5),
     .items-table td:nth-child(5) {
       text-align: right;
-      width: 100px;
     }
 
     .summary {
-      margin: 20px 0;
-      text-align: right;
+      float: right;
+      width: 300px;
+      margin-top: 20px;
     }
 
     .summary-row {
       display: flex;
-      justify-content: flex-end;
-      margin: 5px 0;
-      width: 300px;
-      margin-left: auto;
-    }
-
-    .summary-row span:first-child {
-      flex: 1;
-      text-align: left;
-    }
-
-    .summary-row span:last-child {
-      width: 100px;
-      text-align: right;
-    }
-
-    .summary-separator {
-      height: 1px;
-      background-color: #333;
+      justify-content: space-between;
       margin: 8px 0;
-      width: 300px;
-      margin-left: auto;
+      font-size: 12px;
     }
 
     .summary-row.total {
       font-weight: bold;
-      margin-top: 10px;
-    }
-
-    .footer {
-      margin-top: 40px;
-      text-align: center;
-      font-size: 8px;
-      font-style: italic;
-      color: #666;
-    }
-
-    .footer p {
-      margin: 2px 0;
+      border-top: 1px solid #000;
+      padding-top: 8px;
+      margin-top: 15px;
     }
 
     @media print {
