@@ -1,5 +1,5 @@
 
-import { Pencil, Trash2, Link } from "lucide-react";
+import { Pencil, Trash2, Link, Eye } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { 
@@ -17,12 +17,16 @@ import { Part } from "@/types/part";
 
 interface PartsCardProps {
   part: Part;
+  onView: () => void;
   onEdit: () => void;
   onDelete: () => void;
-  formatCurrency: (amount: number) => string;
 }
 
-export const PartsCard = ({ part, onEdit, onDelete, formatCurrency }: PartsCardProps) => {
+export const PartsCard = ({ part, onView, onEdit, onDelete }: PartsCardProps) => {
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount);
+  };
+
   return (
     <Card className="overflow-hidden">
       <CardContent className="p-0">
@@ -47,6 +51,15 @@ export const PartsCard = ({ part, onEdit, onDelete, formatCurrency }: PartsCardP
           </div>
         </div>
         <div className="flex border-t">
+          <Button 
+            variant="ghost" 
+            className="flex-1 rounded-none h-12" 
+            onClick={onView}
+          >
+            <Eye className="h-4 w-4 mr-2" />
+            Görüntüle
+          </Button>
+          <div className="w-px bg-border h-12" />
           <Button 
             variant="ghost" 
             className="flex-1 rounded-none h-12" 
