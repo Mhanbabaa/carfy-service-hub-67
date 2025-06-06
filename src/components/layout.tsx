@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Link, Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -104,9 +105,9 @@ const Layout = () => {
   const isSuperAdmin = userProfile?.role === "superadmin";
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex min-h-screen w-full bg-background">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex h-full w-64 flex-col border-r bg-background">
+      <aside className="hidden lg:flex h-screen w-64 flex-col border-r bg-background sticky top-0">
         <div className="flex h-14 items-center gap-2 border-b px-4">
           <div className="flex items-center gap-2 font-semibold">
             <Wrench className="h-5 w-5 text-primary" />
@@ -181,7 +182,7 @@ const Layout = () => {
             </div>
           )}
         </nav>
-        <div className="sticky bottom-0 border-t bg-background p-4">
+        <div className="border-t bg-background p-4">
           <div className="flex items-center justify-between">
             <ModeToggle />
             <Button
@@ -195,12 +196,13 @@ const Layout = () => {
         </div>
       </aside>
 
-      {/* Mobile Navigation */}
-      <div className="flex min-h-screen flex-col lg:hidden">
-        <header className="sticky top-0 flex h-14 items-center gap-4 border-b bg-background px-4 lg:h-[60px]">
+      {/* Main Content Area */}
+      <div className="flex flex-1 flex-col lg:hidden">
+        {/* Mobile Header */}
+        <header className="flex h-14 items-center gap-4 border-b bg-background px-4">
           <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
             <SheetTrigger asChild>
-              <Button variant="outline" size="icon" className="lg:hidden">
+              <Button variant="outline" size="icon">
                 <Menu className="h-5 w-5" />
                 <span className="sr-only">Toggle Menu</span>
               </Button>
@@ -302,14 +304,17 @@ const Layout = () => {
           </div>
         </header>
 
-        <div className="px-4 md:px-6 lg:px-8 py-6 flex-1">
-          <Outlet />
-        </div>
+        {/* Mobile Content */}
+        <main className="flex-1 overflow-auto">
+          <div className="container mx-auto px-4 py-6">
+            <Outlet />
+          </div>
+        </main>
       </div>
 
-      {/* Main Content for Desktop */}
-      <main className="hidden lg:block flex-1 overflow-y-auto">
-        <div className="px-8 py-6">
+      {/* Desktop Main Content */}
+      <main className="hidden lg:block flex-1 overflow-auto">
+        <div className="container mx-auto px-8 py-6">
           <Outlet />
         </div>
       </main>
