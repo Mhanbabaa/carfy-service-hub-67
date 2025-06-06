@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { Service, ServicePart, ServiceStatus, getStatusLabel } from "@/types/service";
 import { Button } from "@/components/ui/button";
@@ -131,7 +132,7 @@ export const ServiceModal = ({
       if (service.id) {
         loadServiceParts(service.id);
       } else {
-        setParts(service.parts);
+        setParts(service.parts || []);
       }
     } else {
       form.reset({
@@ -155,7 +156,7 @@ export const ServiceModal = ({
     return parts.reduce((total, part) => total + (part.quantity * part.unitPrice), 0);
   };
 
-  const handleAddPart = async () => {
+  const handleAddPart = () => {
     if (newPart.name && newPart.quantity > 0 && newPart.unitPrice > 0) {
       const part: ServicePart = {
         id: uuidv4(),
@@ -165,44 +166,7 @@ export const ServiceModal = ({
         unitPrice: newPart.unitPrice
       };
       
-      // Eğer mevcut bir servis düzenleniyorsa, parçayı direkt veritabanına kaydet
-      if (service?.id) {
-        try {
-          const { error } = await supabase
-            .from('service_parts')
-            .insert({
-              id: part.id,
-              service_id: service.id,
-              part_name: part.name,
-              part_code: part.code || '',
-              quantity: part.quantity,
-              unit_price: part.unitPrice,
-              tenant_id: userProfile?.tenant_id,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            });
-          
-          if (error) {
-            console.error('Error saving part:', error);
-            toast({
-              title: "Hata",
-              description: "Parça kaydedilirken bir hata oluştu.",
-              variant: "destructive",
-            });
-            return;
-          }
-          
-          toast({
-            title: "Parça eklendi",
-            description: "Parça başarıyla kaydedildi.",
-            variant: "default",
-          });
-        } catch (error) {
-          console.error('Error in handleAddPart:', error);
-          return;
-        }
-      }
-      
+      // Local state'e ekle
       setParts([...parts, part]);
       setNewPart({
         name: "",
@@ -213,41 +177,11 @@ export const ServiceModal = ({
     }
   };
 
-  const handleRemovePart = async (partId: string) => {
-    // Eğer mevcut bir servis düzenleniyorsa, parçayı veritabanından da sil
-    if (service?.id) {
-      try {
-        const { error } = await supabase
-          .from('service_parts')
-          .delete()
-          .eq('id', partId)
-          .eq('tenant_id', userProfile?.tenant_id);
-        
-        if (error) {
-          console.error('Error deleting part:', error);
-          toast({
-            title: "Hata",
-            description: "Parça silinirken bir hata oluştu.",
-            variant: "destructive",
-          });
-          return;
-        }
-        
-        toast({
-          title: "Parça silindi",
-          description: "Parça başarıyla silindi.",
-          variant: "default",
-        });
-      } catch (error) {
-        console.error('Error in handleRemovePart:', error);
-        return;
-      }
-    }
-    
+  const handleRemovePart = (partId: string) => {
     setParts(parts.filter(part => part.id !== partId));
   };
 
-  const onSubmit = (data: FormValues) => {
+  const onSubmit = async (data: FormValues) => {
     const selectedVehicle = vehicles.find(v => v.id === data.vehicleId);
     if (!selectedVehicle) {
       return;
@@ -256,35 +190,140 @@ export const ServiceModal = ({
     const partsCost = calculatePartsCost();
     const totalCost = data.laborCost + partsCost;
     
-    const newService: Service = {
-      id: service?.id || uuidv4(),
-      vehicleId: data.vehicleId,
-      plateNumber: selectedVehicle.plate_number,
-      make: selectedVehicle.brand_name,
-      model: selectedVehicle.model_name,
-      year: selectedVehicle.year,
-      mileage: selectedVehicle.mileage,
-      customerName: selectedVehicle.customer_name,
-      status: data.status as ServiceStatus,
-      laborCost: data.laborCost,
-      partsCost,
-      totalCost,
-      technician: data.technician,
-      complaint: data.complaint,
-      servicePerformed: data.servicePerformed,
-      parts,
-      history: service?.history || [{
-        id: uuidv4(),
-        date: new Date(),
-        action: "Servis Kaydı Oluşturuldu",
-        user: "Sistem Kullanıcısı",
-        description: "Araç servise kabul edildi."
-      }],
-      arrivalDate: service?.arrivalDate || new Date(),
-      deliveryDate: service?.deliveryDate
-    };
-    
-    onSave(newService);
+    try {
+      let serviceId = service?.id || uuidv4();
+      
+      // Önce servisi kaydet
+      const serviceData = {
+        id: serviceId,
+        tenant_id: userProfile?.tenant_id,
+        vehicle_id: data.vehicleId,
+        status: data.status as ServiceStatus,
+        labor_cost: data.laborCost,
+        parts_cost: partsCost,
+        complaint: data.complaint,
+        work_done: data.servicePerformed,
+        technician_id: null,
+        arrival_date: service?.arrivalDate?.toISOString() || new Date().toISOString(),
+        delivery_date: service?.deliveryDate?.toISOString() || null,
+        created_at: service?.arrivalDate?.toISOString() || new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      if (service) {
+        // Mevcut servisi güncelle
+        const { error: serviceError } = await supabase
+          .from('services')
+          .update({
+            status: data.status,
+            labor_cost: data.laborCost,
+            parts_cost: partsCost,
+            complaint: data.complaint,
+            work_done: data.servicePerformed,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', serviceId)
+          .eq('tenant_id', userProfile?.tenant_id);
+        
+        if (serviceError) {
+          console.error('Service update error:', serviceError);
+          throw serviceError;
+        }
+      } else {
+        // Yeni servis oluştur
+        const { error: serviceError } = await supabase
+          .from('services')
+          .insert(serviceData);
+        
+        if (serviceError) {
+          console.error('Service insert error:', serviceError);
+          throw serviceError;
+        }
+      }
+
+      // Mevcut parçaları sil ve yenilerini ekle
+      if (service?.id) {
+        const { error: deleteError } = await supabase
+          .from('service_parts')
+          .delete()
+          .eq('service_id', serviceId)
+          .eq('tenant_id', userProfile?.tenant_id);
+        
+        if (deleteError) {
+          console.error('Error deleting existing parts:', deleteError);
+        }
+      }
+      
+      // Parçaları kaydet
+      if (parts.length > 0) {
+        const partsToInsert = parts.map(part => ({
+          id: part.id,
+          service_id: serviceId,
+          part_name: part.name,
+          part_code: part.code || '',
+          quantity: part.quantity,
+          unit_price: part.unitPrice,
+          total_price: part.quantity * part.unitPrice,
+          tenant_id: userProfile?.tenant_id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }));
+
+        const { error: partsError } = await supabase
+          .from('service_parts')
+          .insert(partsToInsert);
+        
+        if (partsError) {
+          console.error('Error saving parts:', partsError);
+          throw partsError;
+        }
+      }
+
+      // Service objesini oluştur ve parent'a gönder
+      const newService: Service = {
+        id: serviceId,
+        vehicleId: data.vehicleId,
+        plateNumber: selectedVehicle.plate_number,
+        make: selectedVehicle.brand_name,
+        model: selectedVehicle.model_name,
+        year: selectedVehicle.year,
+        mileage: selectedVehicle.mileage,
+        customerName: selectedVehicle.customer_name,
+        status: data.status as ServiceStatus,
+        laborCost: data.laborCost,
+        partsCost,
+        totalCost,
+        technician: data.technician,
+        complaint: data.complaint,
+        servicePerformed: data.servicePerformed,
+        parts,
+        history: service?.history || [{
+          id: uuidv4(),
+          date: new Date(),
+          action: "Servis Kaydı Oluşturuldu",
+          user: "Sistem Kullanıcısı",
+          description: "Araç servise kabul edildi."
+        }],
+        arrivalDate: service?.arrivalDate || new Date(),
+        deliveryDate: service?.deliveryDate
+      };
+      
+      onSave(newService);
+      
+      toast({
+        title: service ? "Servis güncellendi" : "Servis oluşturuldu",
+        description: service ? "Servis işlemi başarıyla güncellendi." : "Yeni servis işlemi başarıyla oluşturuldu.",
+        variant: "default",
+      });
+      
+    } catch (error: any) {
+      console.error('Error saving service:', error);
+      toast({
+        title: "Kaydetme hatası",
+        description: error.message || "Servis işlemi kaydedilirken bir hata oluştu.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Mock data for selects

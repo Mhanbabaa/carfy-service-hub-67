@@ -1,17 +1,30 @@
-import { useState, useEffect } from "react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
-import { 
-  Card, 
-  CardContent 
-} from "@/components/ui/card";
+import { Eye, Pencil, Plus, Search, SlidersHorizontal, Trash2 } from "lucide-react";
+import { Part } from "@/types/part";
+import { PartsModal } from "@/components/parts/PartsModal";
+import { PartsCard } from "@/components/parts/PartsCard";
+import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -23,183 +36,67 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
-import { Plus, Search, SlidersHorizontal, Pencil, Trash2, Link } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { PartsModal } from "@/components/parts/PartsModal";
-import { PartsCard } from "@/components/parts/PartsCard";
-import type { Part } from "@/types/part";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-import { v4 as uuidv4 } from 'uuid';
-
-// Using any to avoid deep type instantiation issues with Supabase
-type DbResult = any;
 
 const Parts = () => {
   const isMobile = useIsMobile();
   const { toast } = useToast();
   const { userProfile } = useAuth();
-  
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPart, setSelectedPart] = useState<Part | null>(null);
-  const [parts, setParts] = useState<Part[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch parts from service_parts table directly
-  const fetchParts = async () => {
-    if (!userProfile?.tenant_id) return;
-    
-    setIsLoading(true);
-    try {
-      console.log('[PARTS] Parçalar getiriliyor, tenant ID:', userProfile.tenant_id);
+  // Fetch parts data from service_parts_view
+  const { data: parts = [], isLoading, refetch } = useQuery({
+    queryKey: ['parts', userProfile?.tenant_id],
+    queryFn: async () => {
+      if (!userProfile?.tenant_id) return [];
       
-      // 1. Tüm parçaları service_parts tablosundan direkt olarak getir
-      const { data: serviceParts, error: partsError } = await supabase
-        .from('service_parts')
+      console.log('Fetching parts for tenant:', userProfile.tenant_id);
+      
+      const { data, error } = await supabase
+        .from('service_parts_view')
         .select('*')
-        .eq('tenant_id', userProfile.tenant_id);
+        .eq('tenant_id', userProfile.tenant_id)
+        .order('created_at', { ascending: false });
       
-      if (partsError) {
-        console.error('[PARTS] Parça verileri alınamadı:', partsError);
+      if (error) {
+        console.error('Error fetching parts:', error);
         toast({
           title: "Veri alma hatası",
           description: "Parçalar yüklenirken bir hata oluştu.",
           variant: "destructive",
         });
-        setIsLoading(false);
-        return;
+        return [];
       }
       
-      console.log(`[PARTS] ${serviceParts?.length || 0} parça alındı:`, serviceParts);
+      console.log('Parts data:', data);
       
-      if (!serviceParts || serviceParts.length === 0) {
-        console.log('[PARTS] Hiç parça bulunamadı');
-        setParts([]);
-        setIsLoading(false);
-        return;
-      }
-      
-      // 2. Tüm servisleri bir kerede getir
-      const { data: services, error: servicesError } = await supabase
-        .from('services')
-        .select('*')
-        .eq('tenant_id', userProfile.tenant_id);
-        
-      if (servicesError) {
-        console.error('[PARTS] Servis verileri alınamadı:', servicesError);
-      }
-      
-      console.log(`[PARTS] ${services?.length || 0} servis alındı`);
-      
-      // 3. Tüm araçları bir kerede getir
-      const { data: vehicles, error: vehiclesError } = await supabase
-        .from('vehicle_details')
-        .select('*')
-        .eq('tenant_id', userProfile.tenant_id);
-        
-      if (vehiclesError) {
-        console.error('[PARTS] Araç verileri alınamadı:', vehiclesError);
-      }
-      
-      console.log(`[PARTS] ${vehicles?.length || 0} araç alındı`);
-      
-      // 4. Servis-Araç eşleştirme haritası oluştur
-      const serviceVehicleMap = new Map<string, {
-        plate_number: string;
-        vehicle_name: string;
-        status: string | null;
-      }>();
-      
-      if (services && vehicles) {
-        services.forEach((service: DbResult) => {
-          const vehicle = vehicles.find((v: DbResult) => v.id === service.vehicle_id);
-          if (vehicle) {
-            serviceVehicleMap.set(service.id, {
-              plate_number: vehicle.plate_number || 'Bilinmiyor',
-              vehicle_name: `${vehicle.brand_name || ''} ${vehicle.model_name || ''}`.trim() || 'Bilinmiyor',
-              status: service.status
-            });
-          }
-        });
-      }
-      
-      console.log('[PARTS] Servis-Araç eşleştirme haritası oluşturuldu');
-      
-      // 5. Parçaları formatla
-      const formattedParts = serviceParts.map((part: DbResult) => {
-        const serviceInfo = serviceVehicleMap.get(part.service_id) || {
-          plate_number: 'Bilinmiyor',
-          vehicle_name: 'Bilinmiyor',
-          status: null
-        };
-        
-        return {
-          id: part.id,
-          name: part.part_name,
-          code: part.part_code || '',
-          quantity: part.quantity,
-          unitPrice: Number(part.unit_price),
-          serviceId: part.service_id,
-          serviceReference: `${serviceInfo.plate_number} - ${serviceInfo.vehicle_name}`,
-          servicePlateNumber: serviceInfo.plate_number,
-          serviceVehicleName: serviceInfo.vehicle_name,
-          serviceStatus: serviceInfo.status
-        };
-      });
-      
-      console.log('[PARTS] Parçalar formatlandı:', formattedParts);
-      setParts(formattedParts);
-    } catch (e) {
-      console.error('[PARTS] fetchParts fonksiyonunda hata:', e);
-      toast({
-        title: "Beklenmeyen hata",
-        description: "Parçalar yüklenirken beklenmeyen bir hata oluştu.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Component mount olduğunda ve userProfile değiştiğinde parçaları çek
-  useEffect(() => {
-    fetchParts();
-  }, [userProfile?.tenant_id]);
-
-  // Add an extra effect to refresh the parts list when the page is visited
-  useEffect(() => {
-    // Using the Page Visibility API to detect when the page becomes visible
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        fetchParts();
-      }
-    };
-
-    // Attach event listener for visibility changes
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    // Refresh on component mount too
-    fetchParts();
-
-    // Cleanup the event listener
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, []);
+      // Map service_parts_view data to Part type
+      return data.map(item => ({
+        id: item.id,
+        name: item.part_name,
+        code: item.part_code,
+        quantity: item.quantity,
+        unitPrice: item.unit_price,
+        serviceId: item.service_id,
+        serviceReference: item.service_reference || `${item.plate_number || 'Bilinmiyor'} - ${item.vehicle_name || 'Bilinmiyor'}`,
+        servicePlateNumber: item.plate_number,
+        serviceVehicleName: item.vehicle_name,
+        serviceStatus: item.service_status
+      }));
+    },
+    enabled: !!userProfile?.tenant_id,
+  });
 
   const filteredParts = parts.filter(part => 
     part.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (part.code && part.code.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    part.serviceReference.toLowerCase().includes(searchQuery.toLowerCase())
+    (part.serviceReference && part.serviceReference.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (part.servicePlateNumber && part.servicePlateNumber.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('tr-TR', {
-      style: 'currency',
-      currency: 'TRY'
-    }).format(amount);
+  const handleView = (partId: string) => {
+    console.log("View part:", partId);
   };
 
   const handleEdit = (part: Part) => {
@@ -211,22 +108,20 @@ const Parts = () => {
     try {
       if (!userProfile?.tenant_id) return;
       
-      console.log('[PARTS] Parça silme işlemi başlatılıyor:', partId);
+      console.log('Deleting part:', partId);
       
-      // Artık audit kayıtları CASCADE ile otomatik silinecek, direkt parçayı sil
-      const { error: partDeleteError } = await supabase
+      const { error } = await supabase
         .from('service_parts')
         .delete()
         .eq('id', partId)
         .eq('tenant_id', userProfile.tenant_id);
       
-      if (partDeleteError) {
-        console.error('[PARTS] Parça silinemedi:', partDeleteError);
-        throw new Error(`Parça silinirken hata oluştu: ${partDeleteError.message}`);
+      if (error) {
+        console.error('Error deleting part:', error);
+        throw error;
       }
-      
-      // Remove the part from the local state
-      setParts(parts.filter(part => part.id !== partId));
+
+      refetch();
       
       toast({
         title: "Parça silindi",
@@ -234,11 +129,10 @@ const Parts = () => {
         variant: "default",
       });
       
-      console.log('[PARTS] Parça başarıyla silindi');
     } catch (error: any) {
-      console.error('[PARTS] Parça silme işleminde hata:', error);
+      console.error('Error deleting part:', error);
       toast({
-        title: "Hata",
+        title: "Silme hatası",
         description: error.message || "Parça silinirken bir hata oluştu.",
         variant: "destructive",
       });
@@ -252,28 +146,28 @@ const Parts = () => {
 
   const handleSave = async (part: Part) => {
     try {
+      console.log("Saving part:", part);
+      
       if (selectedPart) {
         // Update existing part
         const { error } = await supabase
           .from('service_parts')
           .update({
             part_name: part.name,
-            part_code: part.code,
+            part_code: part.code || '',
             quantity: part.quantity,
             unit_price: part.unitPrice,
-            service_id: part.serviceId,
-            updated_at: new Date().toISOString()
+            total_price: part.quantity * part.unitPrice,
+            updated_at: new Date().toISOString(),
           })
           .eq('id', part.id)
-          .eq('tenant_id', userProfile?.tenant_id as string);
+          .eq('tenant_id', userProfile?.tenant_id);
         
-        if (error) {
-          throw error;
-        }
+        if (error) throw error;
         
         toast({
           title: "Parça güncellendi",
-          description: "Parça bilgileri başarıyla güncellendi.",
+          description: "Parça başarıyla güncellendi.",
           variant: "default",
         });
       } else {
@@ -281,20 +175,19 @@ const Parts = () => {
         const { error } = await supabase
           .from('service_parts')
           .insert({
-            id: uuidv4(),
+            id: part.id,
+            service_id: part.serviceId,
             part_name: part.name,
-            part_code: part.code,
+            part_code: part.code || '',
             quantity: part.quantity,
             unit_price: part.unitPrice,
-            service_id: part.serviceId,
+            total_price: part.quantity * part.unitPrice,
             tenant_id: userProfile?.tenant_id,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           });
         
-        if (error) {
-          throw error;
-        }
+        if (error) throw error;
         
         toast({
           title: "Parça eklendi",
@@ -303,18 +196,29 @@ const Parts = () => {
         });
       }
       
-      // Parçaları tekrar yükle
-      fetchParts();
+      refetch();
       setIsModalOpen(false);
     } catch (error: any) {
-      console.error("Error saving part:", error);
+      console.error('Error saving part:', error);
       toast({
-        title: "Hata",
+        title: "Kaydetme hatası",
         description: error.message || "Parça kaydedilirken bir hata oluştu.",
         variant: "destructive",
       });
     }
   };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -344,12 +248,9 @@ const Parts = () => {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => setSearchQuery("")}>Tüm Parçalar</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => {
-                setParts([...parts].sort((a, b) => a.unitPrice - b.unitPrice));
-              }}>Fiyata Göre (Artan)</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => {
-                setParts([...parts].sort((a, b) => b.unitPrice - a.unitPrice));
-              }}>Fiyata Göre (Azalan)</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSearchQuery("fren")}>Fren Parçaları</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSearchQuery("motor")}>Motor Parçaları</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSearchQuery("elektrik")}>Elektrik Parçaları</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           <Button onClick={handleAddNew}>
@@ -359,31 +260,21 @@ const Parts = () => {
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      {filteredParts.length === 0 ? (
+        <div className="text-center py-10">
+          <p className="text-muted-foreground">Parça bulunamadı.</p>
         </div>
       ) : isMobile ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filteredParts.length > 0 ? (
-            filteredParts.map((part) => (
-              <PartsCard
-                key={part.id}
-                part={part}
-                onEdit={() => handleEdit(part)}
-                onDelete={() => handleDelete(part.id)}
-                formatCurrency={formatCurrency}
-              />
-            ))
-          ) : (
-            <div className="col-span-full flex flex-col items-center justify-center p-8 text-center border rounded-lg">
-              <p className="mb-4 text-muted-foreground">Parça bulunamadı.</p>
-              <Button onClick={handleAddNew}>
-                <Plus className="mr-2 h-4 w-4" />
-                Parça Ekle
-              </Button>
-            </div>
-          )}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredParts.map((part) => (
+            <PartsCard
+              key={part.id}
+              part={part}
+              onView={() => handleView(part.id)}
+              onEdit={() => handleEdit(part)}
+              onDelete={() => handleDelete(part.id)}
+            />
+          ))}
         </div>
       ) : (
         <div className="rounded-md border overflow-hidden">
@@ -392,78 +283,86 @@ const Parts = () => {
               <TableRow>
                 <TableHead>Parça Adı</TableHead>
                 <TableHead>Parça Kodu</TableHead>
-                <TableHead>Adet</TableHead>
-                <TableHead>Birim Fiyat</TableHead>
-                <TableHead>Toplam Fiyat</TableHead>
+                <TableHead className="text-right">Adet</TableHead>
+                <TableHead className="text-right">Birim Fiyat</TableHead>
+                <TableHead className="text-right">Toplam Fiyat</TableHead>
                 <TableHead>Servis</TableHead>
                 <TableHead className="text-right">İşlemler</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredParts.length > 0 ? (
-                filteredParts.map((part) => (
-                  <TableRow key={part.id} className="hover:bg-muted/50">
-                    <TableCell className="font-medium">{part.name}</TableCell>
-                    <TableCell className="text-muted-foreground">{part.code || "-"}</TableCell>
-                    <TableCell>{part.quantity}</TableCell>
-                    <TableCell>{formatCurrency(part.unitPrice)}</TableCell>
-                    <TableCell className="font-medium">{formatCurrency(part.quantity * part.unitPrice)}</TableCell>
-                    <TableCell>
-                      <a href={`/services/${part.serviceId}`} className="text-blue-500 hover:underline flex items-center">
-                        <Link className="h-4 w-4 mr-1" />
-                        {part.serviceReference}
-                      </a>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex justify-end items-center gap-2">
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          onClick={() => handleEdit(part)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                          <span className="sr-only">Düzenle</span>
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button 
-                              variant="ghost" 
-                              size="icon"
-                              className="hover:bg-destructive/10 hover:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                              <span className="sr-only">Sil</span>
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Parçayı Sil</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Bu işlem geri alınamaz. "{part.name}" parçasını silmek istediğinizden emin misiniz?
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>İptal</AlertDialogCancel>
-                              <AlertDialogAction 
-                                className="bg-destructive hover:bg-destructive/90"
-                                onClick={() => handleDelete(part.id)}
-                              >
-                                Sil
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+              {filteredParts.map((part) => (
+                <TableRow key={part.id} className="hover:bg-muted/50">
+                  <TableCell className="font-medium">{part.name}</TableCell>
+                  <TableCell className="text-muted-foreground">{part.code || "-"}</TableCell>
+                  <TableCell className="text-right">{part.quantity}</TableCell>
+                  <TableCell className="text-right">{formatCurrency(part.unitPrice)}</TableCell>
+                  <TableCell className="text-right font-medium">
+                    {formatCurrency(part.quantity * part.unitPrice)}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    <div>{part.serviceReference}</div>
+                    {part.serviceStatus && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Durum: {part.serviceStatus === 'waiting' ? 'Bekliyor' : 
+                               part.serviceStatus === 'in_progress' ? 'Devam Ediyor' :
+                               part.serviceStatus === 'completed' ? 'Tamamlandı' :
+                               part.serviceStatus === 'delivered' ? 'Teslim Edildi' :
+                               part.serviceStatus === 'cancelled' ? 'İptal Edildi' : part.serviceStatus}
                       </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center">
-                    Parça bulunamadı.
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex justify-end items-center gap-2">
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => handleView(part.id)}
+                      >
+                        <Eye className="h-4 w-4" />
+                        <span className="sr-only">Görüntüle</span>
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => handleEdit(part)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                        <span className="sr-only">Düzenle</span>
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            className="hover:bg-destructive/10 hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            <span className="sr-only">Sil</span>
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Parçayı Sil</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Bu işlem geri alınamaz. Bu parçayı silmek istediğinizden emin misiniz?
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>İptal</AlertDialogCancel>
+                            <AlertDialogAction 
+                              className="bg-destructive hover:bg-destructive/90"
+                              onClick={() => handleDelete(part.id)}
+                            >
+                              Sil
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
                   </TableCell>
                 </TableRow>
-              )}
+              ))}
             </TableBody>
           </Table>
         </div>
