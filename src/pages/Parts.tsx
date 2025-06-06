@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -214,38 +213,7 @@ const Parts = () => {
       
       console.log('[PARTS] Parça silme işlemi başlatılıyor:', partId);
       
-      // First check if audit records exist for this part
-      const { data: auditRecords, error: checkError } = await supabase
-        .from('service_parts_audit')
-        .select('id')
-        .eq('service_part_id', partId);
-      
-      if (checkError) {
-        console.error('[PARTS] Audit kayıtları kontrol edilirken hata:', checkError);
-        throw new Error(`Denetim kayıtları kontrol edilirken hata oluştu: ${checkError.message}`);
-      }
-      
-      // If audit records exist, delete them first
-      if (auditRecords && auditRecords.length > 0) {
-        console.log(`[PARTS] ${auditRecords.length} audit kaydı bulundu, siliniyor...`);
-        
-        const { error: auditDeleteError } = await supabase
-          .from('service_parts_audit')
-          .delete()
-          .eq('service_part_id', partId);
-        
-        if (auditDeleteError) {
-          console.error('[PARTS] Audit kayıtları silinemedi:', auditDeleteError);
-          throw new Error(`Denetim kayıtları silinirken hata oluştu: ${auditDeleteError.message}`);
-        }
-        
-        console.log('[PARTS] Audit kayıtları başarıyla silindi');
-      } else {
-        console.log('[PARTS] Bu parça için audit kaydı bulunmadı');
-      }
-      
-      // Now delete the part itself
-      console.log('[PARTS] Parça siliniyor:', partId);
+      // Artık audit kayıtları CASCADE ile otomatik silinecek, direkt parçayı sil
       const { error: partDeleteError } = await supabase
         .from('service_parts')
         .delete()

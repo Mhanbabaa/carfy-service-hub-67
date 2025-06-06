@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -173,47 +172,33 @@ const Services = () => {
 
   const handleDelete = async (serviceId: string) => {
     try {
-      // Step 1: Delete any associated audit records first to avoid foreign key constraints
-      const { data: serviceParts, error: fetchPartsError } = await supabase
-        .from('service_parts')
-        .select('id')
-        .eq('service_id', serviceId);
+      if (!userProfile?.tenant_id) return;
       
-      if (fetchPartsError) {
-        console.error('Error fetching service parts:', fetchPartsError);
-      } else if (serviceParts && serviceParts.length > 0) {
-        // Delete audit records for each part
-        for (const part of serviceParts) {
-          const { error: auditError } = await supabase
-            .from('service_parts_audit')
-            .delete()
-            .eq('service_part_id', part.id);
-          
-          if (auditError) {
-            console.error(`Error deleting audit records for part ${part.id}:`, auditError);
-          }
-        }
-      }
+      console.log('[SERVICES] Servis silme işlemi başlatılıyor:', serviceId);
       
-      // Step 2: Delete all parts associated with this service
+      // Audit kayıtları artık CASCADE ile otomatik silinecek
+      // Sadece service_parts tablosundan parçaları sil, sonra servisi sil
       const { error: partsError } = await supabase
         .from('service_parts')
         .delete()
-        .eq('service_id', serviceId);
+        .eq('service_id', serviceId)
+        .eq('tenant_id', userProfile.tenant_id);
       
       if (partsError) {
-        console.error('Error deleting service parts:', partsError);
+        console.error('[SERVICES] Servis parçaları silinemedi:', partsError);
         throw new Error(`Servis parçaları silinirken hata oluştu: ${partsError.message}`);
       }
       
-      // Step 3: Now delete the service itself
-      const { error } = await supabase
+      // Şimdi servisi sil
+      const { error: serviceError } = await supabase
         .from('services')
         .delete()
-        .eq('id', serviceId);
+        .eq('id', serviceId)
+        .eq('tenant_id', userProfile.tenant_id);
       
-      if (error) {
-        throw error;
+      if (serviceError) {
+        console.error('[SERVICES] Servis silinemedi:', serviceError);
+        throw new Error(`Servis silinirken hata oluştu: ${serviceError.message}`);
       }
 
       refetch();
@@ -223,8 +208,10 @@ const Services = () => {
         description: "Servis işlemi başarıyla silindi.",
         variant: "default",
       });
+      
+      console.log('[SERVICES] Servis başarıyla silindi');
     } catch (error: any) {
-      console.error('Error deleting service:', error);
+      console.error('[SERVICES] Servis silme işleminde hata:', error);
       toast({
         title: "Silme hatası",
         description: error.message || "Servis işlemi silinirken bir hata oluştu.",
