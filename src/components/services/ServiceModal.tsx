@@ -18,6 +18,8 @@ import * as z from "zod";
 import { useSupabaseQuery } from "@/hooks/use-supabase-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { Combobox } from "@/components/ui/combobox";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface ServiceModalProps {
   open: boolean;
@@ -52,6 +54,7 @@ export const ServiceModal = ({
     unitPrice: 0
   });
   const { userProfile } = useAuth();
+  const { toast } = useToast();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -81,6 +84,34 @@ export const ServiceModal = ({
   const selectedVehicleId = form.watch("vehicleId");
   const selectedVehicle = vehicles.find(v => v.id === selectedVehicleId);
 
+  // Load parts when editing a service
+  const loadServiceParts = async (serviceId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('service_parts')
+        .select('*')
+        .eq('service_id', serviceId)
+        .eq('tenant_id', userProfile?.tenant_id);
+      
+      if (error) {
+        console.error('Error loading service parts:', error);
+        return;
+      }
+      
+      const serviceParts = data.map(part => ({
+        id: part.id,
+        name: part.part_name,
+        code: part.part_code,
+        quantity: part.quantity,
+        unitPrice: part.unit_price
+      }));
+      
+      setParts(serviceParts);
+    } catch (error) {
+      console.error('Error in loadServiceParts:', error);
+    }
+  };
+
   // Update form values when service changes
   useEffect(() => {
     if (service) {
@@ -95,7 +126,13 @@ export const ServiceModal = ({
         complaint: service.complaint,
         servicePerformed: service.servicePerformed,
       });
-      setParts(service.parts);
+      
+      // Load existing parts for this service
+      if (service.id) {
+        loadServiceParts(service.id);
+      } else {
+        setParts(service.parts);
+      }
     } else {
       form.reset({
         vehicleId: "",
@@ -118,7 +155,7 @@ export const ServiceModal = ({
     return parts.reduce((total, part) => total + (part.quantity * part.unitPrice), 0);
   };
 
-  const handleAddPart = () => {
+  const handleAddPart = async () => {
     if (newPart.name && newPart.quantity > 0 && newPart.unitPrice > 0) {
       const part: ServicePart = {
         id: uuidv4(),
@@ -127,6 +164,45 @@ export const ServiceModal = ({
         quantity: newPart.quantity,
         unitPrice: newPart.unitPrice
       };
+      
+      // Eğer mevcut bir servis düzenleniyorsa, parçayı direkt veritabanına kaydet
+      if (service?.id) {
+        try {
+          const { error } = await supabase
+            .from('service_parts')
+            .insert({
+              id: part.id,
+              service_id: service.id,
+              part_name: part.name,
+              part_code: part.code || '',
+              quantity: part.quantity,
+              unit_price: part.unitPrice,
+              tenant_id: userProfile?.tenant_id,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            });
+          
+          if (error) {
+            console.error('Error saving part:', error);
+            toast({
+              title: "Hata",
+              description: "Parça kaydedilirken bir hata oluştu.",
+              variant: "destructive",
+            });
+            return;
+          }
+          
+          toast({
+            title: "Parça eklendi",
+            description: "Parça başarıyla kaydedildi.",
+            variant: "default",
+          });
+        } catch (error) {
+          console.error('Error in handleAddPart:', error);
+          return;
+        }
+      }
+      
       setParts([...parts, part]);
       setNewPart({
         name: "",
@@ -137,7 +213,37 @@ export const ServiceModal = ({
     }
   };
 
-  const handleRemovePart = (partId: string) => {
+  const handleRemovePart = async (partId: string) => {
+    // Eğer mevcut bir servis düzenleniyorsa, parçayı veritabanından da sil
+    if (service?.id) {
+      try {
+        const { error } = await supabase
+          .from('service_parts')
+          .delete()
+          .eq('id', partId)
+          .eq('tenant_id', userProfile?.tenant_id);
+        
+        if (error) {
+          console.error('Error deleting part:', error);
+          toast({
+            title: "Hata",
+            description: "Parça silinirken bir hata oluştu.",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        toast({
+          title: "Parça silindi",
+          description: "Parça başarıyla silindi.",
+          variant: "default",
+        });
+      } catch (error) {
+        console.error('Error in handleRemovePart:', error);
+        return;
+      }
+    }
+    
     setParts(parts.filter(part => part.id !== partId));
   };
 
@@ -461,27 +567,29 @@ export const ServiceModal = ({
                             <TableHead className="text-right">Adet</TableHead>
                             <TableHead className="text-right">Birim Fiyat</TableHead>
                             <TableHead className="text-right">Toplam</TableHead>
-                            <TableHead className="w-[50px]"></TableHead>
+                            <TableHead className="text-right">İşlemler</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {parts.map((part) => (
                             <TableRow key={part.id}>
-                              <TableCell>{part.name}</TableCell>
-                              <TableCell>{part.code || "-"}</TableCell>
+                              <TableCell className="font-medium">{part.name}</TableCell>
+                              <TableCell className="text-muted-foreground">{part.code || "-"}</TableCell>
                               <TableCell className="text-right">{part.quantity}</TableCell>
                               <TableCell className="text-right">{formatCurrency(part.unitPrice)}</TableCell>
-                              <TableCell className="text-right">{formatCurrency(part.quantity * part.unitPrice)}</TableCell>
-                              <TableCell>
-                                <Button 
+                              <TableCell className="text-right font-medium">
+                                {formatCurrency(part.quantity * part.unitPrice)}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button
                                   type="button"
-                                  variant="ghost" 
-                                  size="icon" 
+                                  variant="ghost"
+                                  size="icon"
                                   onClick={() => handleRemovePart(part.id)}
-                                  className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                                  className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
                                 >
                                   <X className="h-4 w-4" />
-                                  <span className="sr-only">Sil</span>
+                                  <span className="sr-only">Parçayı sil</span>
                                 </Button>
                               </TableCell>
                             </TableRow>
@@ -489,7 +597,7 @@ export const ServiceModal = ({
                         </TableBody>
                       </Table>
                     ) : (
-                      <div className="py-6 text-center text-sm text-muted-foreground">
+                      <div className="p-8 text-center text-muted-foreground">
                         Henüz parça eklenmedi.
                       </div>
                     )}
@@ -497,35 +605,42 @@ export const ServiceModal = ({
                   
                   <Separator />
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="laborCost"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>İşçilik Ücreti <span className="text-destructive">*</span></FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="number" 
-                              min="0"
-                              placeholder="500" 
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormDescription>TL cinsinden işçilik ücreti.</FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <div className="space-y-2">
-                      <Label>Parça Ücreti</Label>
-                      <Input 
-                        value={calculatePartsCost().toString()}
-                        readOnly
-                        disabled
-                      />
-                      <p className="text-xs text-muted-foreground">Parça toplamı otomatik hesaplanır.</p>
+                  <FormField
+                    control={form.control}
+                    name="laborCost"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>İşçilik Ücreti (₺)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            min="0" 
+                            step="0.01" 
+                            placeholder="0.00"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <div className="p-4 border rounded-md bg-muted/20">
+                    <div className="text-sm font-medium mb-2">Maliyet Özeti</div>
+                    <div className="grid gap-1">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">İşçilik:</span>
+                        <span>{formatCurrency(currentLaborCost)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Parçalar:</span>
+                        <span>{formatCurrency(currentPartsCost)}</span>
+                      </div>
+                      <Separator className="my-2" />
+                      <div className="flex justify-between font-medium">
+                        <span>Toplam:</span>
+                        <span>{formatCurrency(totalCost)}</span>
+                      </div>
                     </div>
                   </div>
                 </div>

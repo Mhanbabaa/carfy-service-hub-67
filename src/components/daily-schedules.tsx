@@ -1,128 +1,149 @@
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
-import { Clock } from "lucide-react";
+import React from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { format } from 'date-fns';
+import { tr } from 'date-fns/locale';
+import { Clock, User, Wrench } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
-interface DailySchedulesProps {
-  className?: string;
-}
+export const DailySchedules = () => {
+  const { userProfile } = useAuth();
 
-// Sample data - in a real app this would come from an API
-const schedules = [
-  {
-    id: 1,
-    time: "09:00",
-    customer: "Ali Vural",
-    service: "Yağ Değişimi",
-    vehicle: "BMW 320i - 34 AB 1234",
-    assigned: "Mehmet Teknisyen",
-    status: "bekliyor" as const,
-  },
-  {
-    id: 2,
-    time: "10:30",
-    customer: "Ayşe Kaya",
-    service: "Fren Bakımı",
-    vehicle: "Ford Focus - 34 CD 5678",
-    assigned: "Ahmet Teknisyen",
-    status: "işlemde" as const,
-  },
-  {
-    id: 3,
-    time: "13:15",
-    customer: "Mustafa Şahin",
-    service: "Periyodik Bakım",
-    vehicle: "Mercedes C180 - 34 EF 9012",
-    assigned: "Hasan Teknisyen",
-    status: "tamamlandı" as const,
-  },
-  {
-    id: 4,
-    time: "15:45",
-    customer: "Zeynep Demir",
-    service: "Lastik Değişimi",
-    vehicle: "Audi A3 - 34 GH 3456",
-    assigned: "Ali Teknisyen",
-    status: "bekliyor" as const,
-  },
-];
+  const { data: todaysServices, isLoading } = useQuery({
+    queryKey: ['daily-schedules', userProfile?.tenant_id],
+    queryFn: async () => {
+      if (!userProfile?.tenant_id) return [];
 
-const getStatusStyle = (status: "bekliyor" | "işlemde" | "tamamlandı") => {
-  switch (status) {
-    case "bekliyor":
-      return "bg-amber-500/10 text-amber-500 border-amber-500";
-    case "işlemde":
-      return "bg-blue-500/10 text-blue-500 border-blue-500";
-    case "tamamlandı":
-      return "bg-green-500/10 text-green-500 border-green-500";
-    default:
-      return "bg-gray-500/10 text-gray-500 border-gray-500";
-  }
-};
+      const today = new Date();
+      const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
 
-const getStatusText = (status: "bekliyor" | "işlemde" | "tamamlandı") => {
-  switch (status) {
-    case "bekliyor":
-      return "Bekliyor";
-    case "işlemde":
-      return "İşlemde";
-    case "tamamlandı":
-      return "Tamamlandı";
-    default:
-      return "Bilinmiyor";
-  }
-};
+      console.log('DailySchedules: Fetching today services for tenant:', userProfile.tenant_id);
 
-export function DailySchedules({ className }: DailySchedulesProps) {
-  const today = new Date();
-  const formattedDate = today.toLocaleDateString("tr-TR", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
+      const { data, error } = await supabase
+        .from('service_details')
+        .select('*')
+        .eq('tenant_id', userProfile.tenant_id)
+        .gte('arrival_date', startOfToday.toISOString())
+        .lte('arrival_date', endOfToday.toISOString())
+        .order('arrival_date', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching daily schedules:', error);
+        return [];
+      }
+
+      console.log('DailySchedules: Found services:', data);
+      return data || [];
+    },
+    enabled: !!userProfile?.tenant_id,
+    refetchInterval: 30000, // Refresh every 30 seconds
   });
 
-  return (
-    <Card className={cn("h-full", className)}>
-      <CardHeader className="pb-3">
-        <CardTitle>Günlük Randevular</CardTitle>
-        <CardDescription>{formattedDate} için planlanmış randevular</CardDescription>
-      </CardHeader>
-      <CardContent className="overflow-y-auto max-h-[400px] space-y-4">
-        {schedules.map((schedule) => (
-          <div 
-            key={schedule.id} 
-            className="flex items-start space-x-3 p-3 rounded-md bg-accent/50 transition-all duration-200 hover:bg-accent"
-          >
-            <div className="flex flex-col items-center justify-center">
-              <Badge variant="outline" className="bg-primary/10 text-primary border-primary font-medium">
-                {schedule.time}
-              </Badge>
-              <Clock className="h-3 w-3 mt-1 text-muted-foreground" />
-            </div>
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <div className="font-medium font-poppins">{schedule.vehicle}</div>
-                <Badge variant="outline" className={cn(getStatusStyle(schedule.status))}>
-                  {getStatusText(schedule.status)}
-                </Badge>
-              </div>
-              <div className="text-sm">
-                {schedule.customer} · {schedule.service}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                Teknisyen: {schedule.assigned}
-              </div>
-            </div>
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'waiting':
+        return 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100';
+      case 'in_progress':
+        return 'bg-blue-100 text-blue-800 hover:bg-blue-100';
+      case 'completed':
+        return 'bg-green-100 text-green-800 hover:bg-green-100';
+      case 'delivered':
+        return 'bg-gray-100 text-gray-800 hover:bg-gray-100';
+      case 'cancelled':
+        return 'bg-red-100 text-red-800 hover:bg-red-100';
+      default:
+        return 'bg-gray-100 text-gray-800 hover:bg-gray-100';
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'waiting':
+        return 'Bekliyor';
+      case 'in_progress':
+        return 'Devam Ediyor';
+      case 'completed':
+        return 'Tamamlandı';
+      case 'delivered':
+        return 'Teslim Edildi';
+      case 'cancelled':
+        return 'İptal Edildi';
+      default:
+        return 'Bilinmiyor';
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className="animate-pulse">
+            <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
+            <div className="h-3 bg-muted rounded w-1/2"></div>
           </div>
         ))}
-      </CardContent>
-    </Card>
+      </div>
+    );
+  }
+
+  if (!todaysServices || todaysServices.length === 0) {
+    return (
+      <div className="text-center text-muted-foreground py-4">
+        <Wrench className="h-8 w-8 mx-auto mb-2 opacity-50" />
+        <p className="text-sm">Bugün planlanmış servis yok</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {todaysServices.slice(0, 5).map((service) => (
+        <div key={service.id} className="flex flex-col space-y-2 p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Clock className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">
+                {service.arrival_date ? format(new Date(service.arrival_date), 'HH:mm', { locale: tr }) : 'Saat belirtilmedi'}
+              </span>
+            </div>
+            <Badge className={getStatusColor(service.status)}>
+              {getStatusLabel(service.status)}
+            </Badge>
+          </div>
+          
+          <div className="space-y-1">
+            <div className="flex items-center space-x-2">
+              <span className="text-sm font-medium">{service.plate_number}</span>
+              <span className="text-xs text-muted-foreground">
+                {service.brand_name} {service.model_name}
+              </span>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <User className="h-3 w-3 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">{service.customer_name}</span>
+            </div>
+            
+            {service.technician_name && (
+              <div className="flex items-center space-x-2">
+                <Wrench className="h-3 w-3 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">{service.technician_name}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+      
+      {todaysServices.length > 5 && (
+        <div className="text-center">
+          <span className="text-xs text-muted-foreground">
+            +{todaysServices.length - 5} servis daha
+          </span>
+        </div>
+      )}
+    </div>
   );
-}
+};

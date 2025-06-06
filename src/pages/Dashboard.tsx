@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
@@ -64,12 +63,12 @@ const Dashboard: React.FC = () => {
         const lastMonthStart = startOfMonth(subDays(today, 30));
         const twoMonthsAgoStart = startOfMonth(subDays(today, 60));
         
-        // Get active services count (current)
+        // Get active services count (in_progress and waiting status)
         const activeServicesQuery = withTenantFilter(
           supabase
             .from('services')
             .select('id', { count: 'exact' })
-            .eq('status', 'active'),
+            .in('status', ['in_progress', 'waiting']),
           userProfile.tenant_id
         );
         
@@ -84,7 +83,7 @@ const Dashboard: React.FC = () => {
           supabase
             .from('services')
             .select('id', { count: 'exact' })
-            .eq('status', 'active')
+            .in('status', ['in_progress', 'waiting'])
             .lt('created_at', lastWeekStart.toISOString()),
           userProfile.tenant_id
         );
@@ -103,9 +102,9 @@ const Dashboard: React.FC = () => {
           supabase
             .from('services')
             .select('id', { count: 'exact' })
-            .eq('status', 'completed')
-            .gte('updated_at', thisMonthStart.toISOString())
-            .lte('updated_at', thisMonthEnd.toISOString()),
+            .eq('status', 'delivered')
+            .gte('delivery_date', thisMonthStart.toISOString())
+            .lte('delivery_date', thisMonthEnd.toISOString()),
           userProfile.tenant_id
         );
         
@@ -118,20 +117,20 @@ const Dashboard: React.FC = () => {
           supabase
             .from('services')
             .select('id', { count: 'exact' })
-            .eq('status', 'completed')
-            .gte('updated_at', lastMonthStart.toISOString())
-            .lte('updated_at', lastMonthEnd.toISOString()),
+            .eq('status', 'delivered')
+            .gte('delivery_date', lastMonthStart.toISOString())
+            .lte('delivery_date', lastMonthEnd.toISOString()),
           userProfile.tenant_id
         );
         
         const { count: deliveredLastMonth, error: deliveredLastMonthError } = await deliveredLastMonthQuery;
 
-        // Get revenue data for this month
+        // Get revenue data for this month (completed and delivered services)
         const revenueQuery = withTenantFilter(
           supabase
             .from('services')
             .select('labor_cost, parts_cost')
-            .eq('status', 'completed')
+            .in('status', ['completed', 'delivered'])
             .gte('updated_at', thisMonthStart.toISOString())
             .lte('updated_at', thisMonthEnd.toISOString()),
           userProfile.tenant_id
@@ -152,7 +151,7 @@ const Dashboard: React.FC = () => {
           supabase
             .from('services')
             .select('labor_cost, parts_cost')
-            .eq('status', 'completed')
+            .in('status', ['completed', 'delivered'])
             .gte('updated_at', lastMonthStart.toISOString())
             .lte('updated_at', lastMonthEnd.toISOString()),
           userProfile.tenant_id
@@ -171,7 +170,7 @@ const Dashboard: React.FC = () => {
           supabase
             .from('services')
             .select('labor_cost, parts_cost')
-            .eq('status', 'completed')
+            .in('status', ['completed', 'delivered'])
             .gte('updated_at', startOfYear.toISOString())
             .lte('updated_at', endOfYear.toISOString()),
           userProfile.tenant_id
@@ -195,7 +194,7 @@ const Dashboard: React.FC = () => {
           supabase
             .from('services')
             .select('labor_cost, parts_cost')
-            .eq('status', 'completed')
+            .in('status', ['completed', 'delivered'])
             .gte('updated_at', lastYearStart.toISOString())
             .lte('updated_at', lastYearEnd.toISOString()),
           userProfile.tenant_id
@@ -211,6 +210,13 @@ const Dashboard: React.FC = () => {
         const deliveredTrend = calculatePercentChange(deliveredThisMonth || 0, deliveredLastMonth || 0);
         const monthlyRevenueTrend = calculatePercentChange(monthlyRevenue, lastMonthRevenue);
         const yearlyRevenueTrend = calculatePercentChange(yearlyRevenue, lastYearRevenue);
+
+        console.log('Dashboard stats calculated:', {
+          activeServices,
+          deliveredThisMonth,
+          monthlyRevenue,
+          yearlyRevenue
+        });
 
         return {
           active_vehicles: activeServices || 0,
@@ -266,7 +272,7 @@ const Dashboard: React.FC = () => {
         supabase
           .from('services')
           .select('updated_at, labor_cost, parts_cost')
-          .eq('status', 'completed')
+          .in('status', ['completed', 'delivered'])
           .gte('updated_at', startDate)
           .lte('updated_at', endDate),
         userProfile.tenant_id
@@ -324,7 +330,7 @@ const Dashboard: React.FC = () => {
                 description="Devam eden servis işlemleri"
                 icon={<WrenchIcon className="h-4 w-4 text-muted-foreground" />}
                 trend={{
-                  value: stats?.activeServicesTrend || 0,
+                  value: Math.abs(stats?.activeServicesTrend || 0),
                   isPositive: (stats?.activeServicesTrend || 0) >= 0,
                   label: "geçen haftadan"
                 }}
