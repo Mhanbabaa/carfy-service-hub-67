@@ -148,7 +148,7 @@ const Parts = () => {
       console.log("Saving part:", part);
       
       if (selectedPart) {
-        // Update existing part
+        // Update existing part - trigger otomatik olarak total_price'ı hesaplayacak
         const { error } = await supabase
           .from('service_parts')
           .update({
@@ -156,7 +156,6 @@ const Parts = () => {
             part_code: part.code || '',
             quantity: part.quantity,
             unit_price: part.unitPrice,
-            total_price: part.quantity * part.unitPrice,
             updated_at: new Date().toISOString(),
           })
           .eq('id', part.id)
@@ -170,7 +169,7 @@ const Parts = () => {
           variant: "default",
         });
       } else {
-        // Add new part
+        // Add new part - trigger otomatik olarak total_price'ı hesaplayacak
         const { error } = await supabase
           .from('service_parts')
           .insert({
@@ -180,7 +179,6 @@ const Parts = () => {
             part_code: part.code || '',
             quantity: part.quantity,
             unit_price: part.unitPrice,
-            total_price: part.quantity * part.unitPrice,
             tenant_id: userProfile?.tenant_id,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
