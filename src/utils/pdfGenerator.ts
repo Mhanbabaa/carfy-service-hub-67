@@ -45,7 +45,7 @@ export const generateServiceInvoicePDF = async (service: Service): Promise<void>
   }
 };
 
-// Fallback yazdırma modalı - optimize edilmiş tek sayfa tasarım
+// Optimized single-page professional PDF layout
 const openPrintModal = async (service: Service) => {
   const currentDate = new Date().toLocaleDateString('tr-TR');
   const arrivalDate = service.arrivalDate ? new Date(service.arrivalDate).toLocaleDateString('tr-TR') : '-';
@@ -53,7 +53,7 @@ const openPrintModal = async (service: Service) => {
   const subtotal = service.totalCost / (1 + taxRate);
   const taxAmount = service.totalCost - subtotal;
 
-  // Tenant bilgisini al
+  // Get tenant information
   let tenantName = 'CARFY OTOSERVİS';
   try {
     const { data: userData } = await supabase.auth.getUser();
@@ -72,11 +72,6 @@ const openPrintModal = async (service: Service) => {
     console.error('Tenant bilgisi alınamadı:', error);
   }
 
-  // Dinamik yükseklik için kontroller
-  const hasComplaint = service.complaint && service.complaint !== 'Belirtilmemiş';
-  const hasServicePerformed = service.servicePerformed && service.servicePerformed !== 'Belirtilmemiş';
-  const hasTechnician = service.technician && service.technician.trim() !== '';
-
   const printContent = `
     <!DOCTYPE html>
     <html>
@@ -92,27 +87,30 @@ const openPrintModal = async (service: Service) => {
 
         body {
           font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-          font-size: 11px;
-          line-height: 1.3;
-          color: #333;
+          font-size: 10px;
+          line-height: 1.2;
+          color: #333333;
           background: white;
-          padding: 12mm 15mm;
+          padding: 15mm;
         }
 
         .invoice-page {
           width: 100%;
-          max-height: 100vh;
+          max-width: 210mm;
+          min-height: 277mm;
+          position: relative;
           display: flex;
           flex-direction: column;
         }
 
+        /* Header Section - Compact */
         .header {
           display: flex;
           justify-content: space-between;
           align-items: flex-start;
-          margin-bottom: 15px;
+          margin-bottom: 12px;
           border-bottom: 2px solid #2c5aa0;
-          padding-bottom: 12px;
+          padding-bottom: 8px;
         }
 
         .company-section {
@@ -123,30 +121,30 @@ const openPrintModal = async (service: Service) => {
         }
 
         .logo-placeholder {
-          width: 50px;
-          height: 32px;
-          border: 2px solid #2c5aa0;
+          width: 40px;
+          height: 26px;
+          border: 1px solid #2c5aa0;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 9px;
+          font-size: 8px;
           font-weight: bold;
           color: #2c5aa0;
           background-color: #f8f9fa;
-          margin-bottom: 6px;
+          margin-bottom: 4px;
         }
 
         .company-name {
-          font-size: 18px;
+          font-size: 16px;
           font-weight: bold;
           color: #2c5aa0;
-          margin: 3px 0;
+          margin: 2px 0;
         }
 
         .company-details {
-          font-size: 10px;
+          font-size: 9px;
           color: #666;
-          line-height: 1.4;
+          line-height: 1.3;
         }
 
         .invoice-section {
@@ -155,24 +153,24 @@ const openPrintModal = async (service: Service) => {
         }
 
         .invoice-title {
-          font-size: 16px;
+          font-size: 14px;
           font-weight: bold;
-          margin: 0 0 10px 0;
+          margin: 0 0 8px 0;
           color: #2c5aa0;
           background-color: #f0f4f8;
-          padding: 6px 10px;
+          padding: 4px 8px;
           border-radius: 3px;
         }
 
         .invoice-details {
-          font-size: 10px;
+          font-size: 9px;
         }
 
         .detail-row {
           display: flex;
           justify-content: flex-end;
-          margin: 4px 0;
-          gap: 12px;
+          margin: 3px 0;
+          gap: 10px;
         }
 
         .label {
@@ -181,48 +179,49 @@ const openPrintModal = async (service: Service) => {
         }
 
         .value {
-          min-width: 80px;
+          min-width: 70px;
           color: #333;
         }
 
+        /* Info Section - Very Compact */
         .info-section {
-          margin-bottom: 12px;
+          margin-bottom: 10px;
         }
 
         .info-columns {
           display: flex;
-          gap: 20px;
+          gap: 15px;
         }
 
         .info-column {
           flex: 1;
           border: 1px solid #ddd;
-          border-radius: 4px;
-          padding: 10px;
+          border-radius: 3px;
+          padding: 8px;
           background-color: #fafbfc;
         }
 
         .info-title {
-          font-size: 11px;
+          font-size: 10px;
           font-weight: bold;
-          margin-bottom: 8px;
+          margin-bottom: 6px;
           color: #2c5aa0;
           border-bottom: 1px solid #eee;
-          padding-bottom: 3px;
+          padding-bottom: 2px;
         }
 
         .info-content {
-          font-size: 10px;
+          font-size: 9px;
         }
 
         .info-line {
           display: flex;
-          margin: 5px 0;
+          margin: 3px 0;
         }
 
         .info-label {
           font-weight: bold;
-          min-width: 70px;
+          min-width: 60px;
           color: #555;
         }
 
@@ -230,107 +229,74 @@ const openPrintModal = async (service: Service) => {
           color: #333;
         }
 
-        .service-details {
-          margin-bottom: 12px;
+        /* Table Section - Maximized space usage */
+        .table-section {
+          flex: 1;
+          margin-bottom: 10px;
         }
 
-        .service-box {
-          margin-bottom: 8px;
-          border: 1px solid #ddd;
-          border-radius: 4px;
-          padding: 8px;
-          background-color: #fafbfc;
-        }
-
-        .service-box.single-box {
-          margin-bottom: 12px;
-        }
-
-        .service-title {
+        .table-title {
           font-size: 11px;
           font-weight: bold;
           margin-bottom: 6px;
           color: #2c5aa0;
-          border-bottom: 1px solid #eee;
-          padding-bottom: 3px;
-        }
-
-        .service-content {
-          font-size: 10px;
-          line-height: 1.4;
-          color: #333;
-        }
-
-        .technician-info {
-          margin-top: 6px;
-          font-size: 10px;
-          color: #666;
-        }
-
-        .table-summary-section {
-          flex: 1;
-          margin-bottom: 12px;
-        }
-
-        .table-title {
-          font-size: 12px;
-          font-weight: bold;
-          margin-bottom: 8px;
-          color: #2c5aa0;
-        }
-
-        .table-container {
-          position: relative;
         }
 
         .items-table {
           width: 100%;
           border-collapse: collapse;
           border: 1px solid #333;
-          font-size: 9px;
-          margin-bottom: 10px;
+          font-size: 8px;
+          margin-bottom: 8px;
         }
 
         .items-table th,
         .items-table td {
           border: 1px solid #333;
-          padding: 6px 5px;
+          padding: 4px 3px;
           text-align: left;
         }
 
         .items-table th {
           background-color: #f5f5f5;
           font-weight: bold;
-          font-size: 8px;
+          font-size: 7px;
           text-align: center;
         }
 
         .center { text-align: center; }
         .right { text-align: right; }
 
+        /* Summary Box - Compact and positioned */
+        .summary-container {
+          display: flex;
+          justify-content: flex-end;
+          margin-bottom: 15px;
+        }
+
         .summary-box {
-          width: 240px;
+          width: 200px;
           border: 1px solid #2c5aa0;
-          border-radius: 4px;
-          padding: 10px;
+          border-radius: 3px;
+          padding: 8px;
           background-color: #f8f9fa;
-          margin-left: auto;
         }
 
         .summary-row {
           display: flex;
           justify-content: space-between;
-          margin: 5px 0;
-          font-size: 10px;
+          margin: 3px 0;
+          font-size: 9px;
         }
 
         .total-row {
-          border-top: 2px solid #2c5aa0;
-          padding-top: 6px;
-          margin-top: 8px;
-          font-size: 12px;
+          border-top: 1px solid #2c5aa0;
+          padding-top: 4px;
+          margin-top: 6px;
+          font-size: 10px;
+          font-weight: bold;
           background-color: #e8f4f8;
-          padding: 8px 0 4px 0;
+          padding: 6px 0 3px 0;
           border-radius: 2px;
         }
 
@@ -340,30 +306,40 @@ const openPrintModal = async (service: Service) => {
 
         .summary-value {
           font-weight: normal;
-          min-width: 70px;
+          min-width: 60px;
           text-align: right;
         }
 
+        /* Footer - Absolute positioning */
         .footer {
-          margin-top: auto;
+          position: absolute;
+          bottom: 15mm;
+          left: 15mm;
+          right: 15mm;
           border-top: 1px solid #ddd;
-          padding-top: 8px;
-          font-size: 9px;
+          padding-top: 6px;
+          font-size: 8px;
           color: #666;
           text-align: center;
         }
 
         @media print { 
           button { display: none; }
-          body { padding: 12mm 15mm; }
+          body { padding: 15mm; }
           .invoice-page {
             max-height: none;
+          }
+          
+          @page {
+            size: A4;
+            margin: 0;
           }
         }
       </style>
     </head>
     <body>
       <div class="invoice-page">
+        <!-- Header Section -->
         <div class="header">
           <div class="company-section">
             <div class="logo-placeholder">LOGO</div>
@@ -393,6 +369,7 @@ const openPrintModal = async (service: Service) => {
           </div>
         </div>
         
+        <!-- Customer and Vehicle Info Section -->
         <div class="info-section">
           <div class="info-columns">
             <div class="info-column">
@@ -432,69 +409,48 @@ const openPrintModal = async (service: Service) => {
           </div>
         </div>
 
-        ${hasComplaint || hasServicePerformed ? `
-        <div class="service-details">
-          ${hasComplaint ? `
-          <div class="service-box ${!hasServicePerformed ? 'single-box' : ''}">
-            <div class="service-title">MÜŞTERİ ŞİKAYET / TALEPLERİ</div>
-            <div class="service-content">${service.complaint}</div>
-          </div>
-          ` : ''}
-          
-          ${hasServicePerformed ? `
-          <div class="service-box ${!hasComplaint ? 'single-box' : ''}">
-            <div class="service-title">YAPILAN İŞLEMLER VE TEKNİSYEN NOTLARI</div>
-            <div class="service-content">${service.servicePerformed}</div>
-            ${hasTechnician ? `
-              <div class="technician-info">
-                <strong>Teknisyen:</strong> ${service.technician}
-              </div>
-            ` : ''}
-          </div>
-          ` : ''}
-        </div>
-        ` : ''}
-
-        <div class="table-summary-section">
+        <!-- Parts and Services Table -->
+        <div class="table-section">
           <h3 class="table-title">DETAYLI DÖKÜM (PARÇA VE İŞÇİLİK TABLOSU)</h3>
-          <div class="table-container">
-            <table class="items-table">
-              <thead>
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th style="width: 40%; text-align: left;">AÇIKLAMA</th>
+                <th style="width: 12%; text-align: center;">MIKTAR</th>
+                <th style="width: 18%; text-align: right;">BİRİM FİYAT</th>
+                <th style="width: 15%; text-align: center;">KDV ORANI</th>
+                <th style="width: 15%; text-align: right;">TOPLAM TUTAR</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${service.parts.map(part => `
                 <tr>
-                  <th style="width: 35%; text-align: left;">AÇIKLAMA</th>
-                  <th style="width: 12%; text-align: center;">MIKTAR</th>
-                  <th style="width: 18%; text-align: right;">BİRİM FİYAT</th>
-                  <th style="width: 15%; text-align: center;">KDV ORANI</th>
-                  <th style="width: 20%; text-align: right;">TOPLAM TUTAR</th>
+                  <td>${part.name}</td>
+                  <td class="center">${part.quantity}</td>
+                  <td class="right">₺${part.unitPrice.toFixed(2)}</td>
+                  <td class="center">%18</td>
+                  <td class="right">₺${(part.quantity * part.unitPrice).toFixed(2)}</td>
                 </tr>
-              </thead>
-              <tbody>
-                ${service.parts.map(part => `
-                  <tr>
-                    <td>${part.name}</td>
-                    <td class="center">${part.quantity}</td>
-                    <td class="right">₺${part.unitPrice.toFixed(2)}</td>
-                    <td class="center">%18</td>
-                    <td class="right">₺${(part.quantity * part.unitPrice).toFixed(2)}</td>
-                  </tr>
-                `).join('')}
-                ${service.laborCost > 0 ? `
-                  <tr>
-                    <td>İşçilik</td>
-                    <td class="center">1</td>
-                    <td class="right">₺${service.laborCost.toFixed(2)}</td>
-                    <td class="center">%18</td>
-                    <td class="right">₺${service.laborCost.toFixed(2)}</td>
-                  </tr>
-                ` : ''}
-                ${service.parts.length === 0 && service.laborCost === 0 ? `
-                  <tr>
-                    <td colspan="5" class="center">Parça veya işçilik bulunmamaktadır</td>
-                  </tr>
-                ` : ''}
-              </tbody>
-            </table>
-            
+              `).join('')}
+              ${service.laborCost > 0 ? `
+                <tr>
+                  <td>İşçilik</td>
+                  <td class="center">1</td>
+                  <td class="right">₺${service.laborCost.toFixed(2)}</td>
+                  <td class="center">%18</td>
+                  <td class="right">₺${service.laborCost.toFixed(2)}</td>
+                </tr>
+              ` : ''}
+              ${service.parts.length === 0 && service.laborCost === 0 ? `
+                <tr>
+                  <td colspan="5" class="center">Parça veya işçilik bulunmamaktadır</td>
+                </tr>
+              ` : ''}
+            </tbody>
+          </table>
+          
+          <!-- Summary Box -->
+          <div class="summary-container">
             <div class="summary-box">
               <div class="summary-row">
                 <span class="summary-label">Ara Toplam:</span>
@@ -512,13 +468,14 @@ const openPrintModal = async (service: Service) => {
           </div>
         </div>
 
+        <!-- Footer Section - Absolutely positioned -->
         <div class="footer">
           <div>Bizi tercih ettiğiniz için teşekkür ederiz.</div>
         </div>
 
         <div style="margin-top: 20px; text-align: center;">
-          <button onclick="window.print()" style="padding: 8px 16px; margin: 5px; background: #2c5aa0; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">Yazdır</button>
-          <button onclick="window.close()" style="padding: 8px 16px; margin: 5px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">Kapat</button>
+          <button onclick="window.print()" style="padding: 6px 12px; margin: 3px; background: #2c5aa0; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 9px;">Yazdır</button>
+          <button onclick="window.close()" style="padding: 6px 12px; margin: 3px; background: #6c757d; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 9px;">Kapat</button>
         </div>
       </div>
     </body>
