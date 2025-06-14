@@ -14,7 +14,7 @@ export const AnimatedCarLoader: React.FC<AnimatedCarLoaderProps> = ({
     <div className={`flex flex-col items-center justify-center ${className}`}>
       <div className="relative" style={{ width: size, height: size * 0.6 }}>
         <img
-          src="https://cdn.dribbble.com/userupload/25134602/file/original-b54f0b03a6c35a66623c41ac2ce4f1ea.gif"
+          src="https://cdn.dribbble.com/userupload/23100238/file/original-913abe576d431ec26bda5b68189149dc.gif"
           alt="Loading..."
           style={{ width: size, height: size * 0.6 }}
           className="object-contain"
