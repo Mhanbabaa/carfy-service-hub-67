@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardFooter, CardTitle } from "@/componen
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useSupabaseQuery } from "@/hooks/use-supabase-query";
 import { Search, Loader2, ArrowLeft, ChevronRight, Star, TrendingUp, Award } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -107,44 +108,6 @@ export default function BrandsPage() {
     brand.name.charAt(0).toUpperCase()
   ))).sort();
 
-  // Animation variants
-  const brandCardVariants = {
-    hidden: { opacity: 0, y: 20, scale: 0.95 },
-    visible: (i: number) => ({
-      opacity: 1,
-      y: 0,
-      scale: 1,
-      transition: {
-        delay: i * 0.05,
-        duration: 0.4,
-        ease: "easeOut"
-      }
-    })
-  };
-
-  const modelCardVariants = {
-    hidden: { opacity: 0, y: 30 },
-    visible: (i: number) => ({
-      opacity: 1,
-      y: 0,
-      transition: {
-        delay: i * 0.08,
-        duration: 0.5,
-        ease: "easeOut"
-      }
-    })
-  };
-
-  // Get brand logo placeholder (you can replace with actual logos later)
-  const getBrandLogo = (brandName: string) => {
-    return `https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=120&h=80&fit=crop&crop=center`;
-  };
-
-  // Get model image placeholder
-  const getModelImage = (modelName: string, brandName: string) => {
-    return `https://images.unsplash.com/photo-1549924231-f129b911e442?w=300&h=200&fit=crop&crop=center`;
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
       <div className="space-y-8 max-w-7xl mx-auto px-6 py-8">
@@ -157,14 +120,6 @@ export default function BrandsPage() {
           >
             Premium Araç Koleksiyonu
           </motion.h1>
-          <motion.p 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="text-lg text-muted-foreground max-w-2xl mx-auto"
-          >
-            Dünyanın en prestijli otomobil markalarını ve modellerini keşfedin
-          </motion.p>
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-8">
@@ -241,7 +196,7 @@ export default function BrandsPage() {
                 </div>
               </div>
             ) : (
-              <div className="space-y-12">
+              <div className="space-y-8">
                 {/* Popular Brands Section */}
                 {selectedLetter === "" && searchTerm === "" && (
                   <motion.div
@@ -256,62 +211,56 @@ export default function BrandsPage() {
                         Popüler Markalar
                       </h2>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                      {brands
-                        .filter((brand: CarBrand) => popularBrands.includes(brand.name))
-                        .slice(0, 6)
-                        .map((brand: CarBrand, index: number) => (
-                          <motion.div
-                            key={`popular-${brand.id}`}
-                            custom={index}
-                            initial="hidden"
-                            animate="visible"
-                            variants={brandCardVariants}
-                          >
-                            <Card 
-                              className="group cursor-pointer bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-primary/30 transition-all duration-300 hover:shadow-xl hover:shadow-primary/10 h-full overflow-hidden"
-                              onClick={() => handleSelectBrand(brand.id)}
-                            >
-                              <CardContent className="p-4 text-center space-y-3">
-                                <div className="relative mx-auto w-16 h-12 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                                  <img
-                                    src={getBrandLogo(brand.name)}
-                                    alt={brand.name}
-                                    className="w-12 h-8 object-contain rounded"
-                                    onError={(e) => {
-                                      const target = e.target as HTMLImageElement;
-                                      target.style.display = 'none';
-                                      target.nextElementSibling?.classList.remove('hidden');
-                                    }}
-                                  />
-                                  <div className="hidden w-full h-full bg-gradient-to-br from-primary/10 to-primary/20 rounded flex items-center justify-center">
-                                    <span className="text-xs font-bold text-primary">{brand.name.charAt(0)}</span>
-                                  </div>
-                                </div>
-                                <h3 className="font-semibold text-sm group-hover:text-primary transition-colors duration-300">
-                                  {brand.name}
-                                </h3>
-                                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                  <ChevronRight className="h-4 w-4 text-primary mx-auto" />
-                                </div>
-                              </CardContent>
-                            </Card>
-                          </motion.div>
-                        ))
-                      }
-                    </div>
+                    
+                    <Card className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
+                      <CardContent className="p-6">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="w-[100px]">Logo</TableHead>
+                              <TableHead>Marka Adı</TableHead>
+                              <TableHead className="text-right">İşlem</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {brands
+                              .filter((brand: CarBrand) => popularBrands.includes(brand.name))
+                              .slice(0, 6)
+                              .map((brand: CarBrand) => (
+                                <TableRow 
+                                  key={`popular-${brand.id}`}
+                                  className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50"
+                                  onClick={() => handleSelectBrand(brand.id)}
+                                >
+                                  <TableCell>
+                                    <div className="w-12 h-8 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 rounded flex items-center justify-center">
+                                      <span className="text-xs font-bold text-primary">{brand.name.charAt(0)}</span>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="font-medium">{brand.name}</TableCell>
+                                  <TableCell className="text-right">
+                                    <Button variant="ghost" size="sm">
+                                      <ChevronRight className="h-4 w-4" />
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                          </TableBody>
+                        </Table>
+                      </CardContent>
+                    </Card>
                   </motion.div>
                 )}
 
-                {/* All Brands Grid */}
-                <div className="space-y-10">
+                {/* All Brands Table */}
+                <div className="space-y-6">
                   {letterGroups.map(([letter, letterBrands], groupIndex) => (
                     <motion.div
                       key={letter}
                       initial={{ opacity: 0, y: 30 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: groupIndex * 0.1 }}
-                      className="space-y-6"
+                      className="space-y-4"
                     >
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 bg-gradient-to-br from-primary to-primary/80 rounded-xl flex items-center justify-center">
@@ -322,51 +271,41 @@ export default function BrandsPage() {
                           {letterBrands.length} marka
                         </Badge>
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                        {letterBrands.map((brand: CarBrand, index: number) => (
-                          <motion.div
-                            key={brand.id}
-                            custom={index}
-                            initial="hidden"
-                            animate="visible"
-                            variants={brandCardVariants}
-                          >
-                            <Card 
-                              className="group cursor-pointer bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-primary/30 transition-all duration-300 hover:shadow-lg hover:shadow-primary/10 h-full overflow-hidden hover:-translate-y-1"
-                              onClick={() => handleSelectBrand(brand.id)}
-                            >
-                              <CardContent className="p-5 text-center space-y-4">
-                                <div className="relative mx-auto w-20 h-14 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-700 dark:to-slate-600 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform duration-300 shadow-sm">
-                                  <img
-                                    src={getBrandLogo(brand.name)}
-                                    alt={brand.name}
-                                    className="w-16 h-10 object-contain rounded"
-                                    onError={(e) => {
-                                      const target = e.target as HTMLImageElement;
-                                      target.style.display = 'none';
-                                      target.nextElementSibling?.classList.remove('hidden');
-                                    }}
-                                  />
-                                  <div className="hidden w-full h-full bg-gradient-to-br from-primary/10 to-primary/20 rounded-xl flex items-center justify-center">
-                                    <span className="text-lg font-bold text-primary">{brand.name.substring(0, 2)}</span>
-                                  </div>
-                                </div>
-                                <div className="space-y-2">
-                                  <h3 className="font-semibold text-base group-hover:text-primary transition-colors duration-300">
-                                    {brand.name}
-                                  </h3>
-                                  <div className="opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0">
-                                    <div className="flex items-center justify-center gap-1 text-xs text-primary">
-                                      <span>Modelleri Gör</span>
-                                      <ChevronRight className="h-3 w-3" />
+                      
+                      <Card className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
+                        <CardContent className="p-6">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="w-[100px]">Logo</TableHead>
+                                <TableHead>Marka Adı</TableHead>
+                                <TableHead className="text-right">İşlem</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {letterBrands.map((brand: CarBrand) => (
+                                <TableRow 
+                                  key={brand.id}
+                                  className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50"
+                                  onClick={() => handleSelectBrand(brand.id)}
+                                >
+                                  <TableCell>
+                                    <div className="w-12 h-8 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 rounded flex items-center justify-center">
+                                      <span className="text-xs font-bold text-primary">{brand.name.substring(0, 2)}</span>
                                     </div>
-                                  </div>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          </motion.div>
-                        ))}
-                      </div>
+                                  </TableCell>
+                                  <TableCell className="font-medium">{brand.name}</TableCell>
+                                  <TableCell className="text-right">
+                                    <Button variant="ghost" size="sm">
+                                      <ChevronRight className="h-4 w-4" />
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </CardContent>
+                      </Card>
                     </motion.div>
                   ))}
 
@@ -432,59 +371,36 @@ export default function BrandsPage() {
             ) : (
               <div>
                 {models.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {models.map((model: CarModel, index: number) => (
-                      <motion.div
-                        key={model.id}
-                        custom={index}
-                        initial="hidden"
-                        animate="visible"
-                        variants={modelCardVariants}
-                      >
-                        <Card className="group cursor-pointer bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-primary/30 transition-all duration-300 hover:shadow-xl hover:shadow-primary/10 overflow-hidden h-full hover:-translate-y-2">
-                          <div className="relative h-48 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-700 dark:to-slate-600 overflow-hidden">
-                            <img
-                              src={getModelImage(model.name, getBrandName())}
-                              alt={`${getBrandName()} ${model.name}`}
-                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.style.display = 'none';
-                                target.nextElementSibling?.classList.remove('hidden');
-                              }}
-                            />
-                            <div className="hidden absolute inset-0 bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center">
-                              <div className="text-center text-white">
-                                <div className="text-3xl font-bold mb-2">{getBrandName().charAt(0)}</div>
-                                <div className="text-sm">{model.name}</div>
-                              </div>
-                            </div>
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                          </div>
-                          <CardHeader className="pb-3">
-                            <CardTitle className="text-xl font-poppins group-hover:text-primary transition-colors duration-300">
-                              {model.name}
-                            </CardTitle>
-                            <p className="text-sm text-muted-foreground">
-                              {getBrandName()} • Premium Model
-                            </p>
-                          </CardHeader>
-                          <CardFooter className="pt-0">
-                            <Button 
-                              variant="outline" 
-                              className="w-full group-hover:bg-primary group-hover:text-white group-hover:border-primary transition-all duration-300"
+                  <Card className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
+                    <CardContent className="p-6">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Model Adı</TableHead>
+                            <TableHead>Marka</TableHead>
+                            <TableHead className="text-right">İşlem</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {models.map((model: CarModel) => (
+                            <TableRow 
+                              key={model.id}
+                              className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50"
                             >
-                              <div className="flex items-center justify-center gap-2">
-                                <TrendingUp className="h-4 w-4" />
-                                <span>Araçları Görüntüle</span>
-                                <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform duration-300" />
-                              </div>
-                            </Button>
-                          </CardFooter>
-                        </Card>
-                      </motion.div>
-                    ))}
-                  </div>
+                              <TableCell className="font-medium">{model.name}</TableCell>
+                              <TableCell className="text-muted-foreground">{getBrandName()}</TableCell>
+                              <TableCell className="text-right">
+                                <Button variant="outline" size="sm">
+                                  <TrendingUp className="h-4 w-4 mr-2" />
+                                  Araçları Görüntüle
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
                 ) : (
                   <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
