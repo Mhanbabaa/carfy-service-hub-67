@@ -54,48 +54,49 @@ const Login: React.FC = () => {
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-muted/30">
-      <div className="w-full max-w-md px-4">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold tracking-tight">Carfy</h1>
-          <p className="text-muted-foreground mt-2">Araç Servis Takip Uygulaması</p>
+    <div className="flex items-center justify-center min-h-screen bg-muted/30 p-4">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Carfy</h1>
+          <p className="text-muted-foreground mt-2 text-sm sm:text-base">Araç Servis Takip Uygulaması</p>
         </div>
         
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-xl">Hoş geldiniz</CardTitle>
-            <CardDescription>
+        <Card className="border-0 sm:border shadow-none sm:shadow-lg">
+          <CardHeader className="px-4 sm:px-6">
+            <CardTitle className="text-lg sm:text-xl">Hoş geldiniz</CardTitle>
+            <CardDescription className="text-sm">
               Hesabınıza giriş yapın
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 sm:px-6">
             <Tabs defaultValue="login" className="w-full">
-              <TabsList className="grid w-full grid-cols-1">
-                <TabsTrigger value="login">Giriş</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-1 h-10">
+                <TabsTrigger value="login" className="text-sm">Giriş</TabsTrigger>
               </TabsList>
               <TabsContent value="login">
                 {error && (
                   <Alert variant="destructive" className="mb-4">
                     <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>{error}</AlertDescription>
+                    <AlertDescription className="text-sm">{error}</AlertDescription>
                   </Alert>
                 )}
                 <form onSubmit={handleSignIn} className="space-y-4 mt-4">
                   <div className="space-y-2">
-                    <Label htmlFor="email">E-posta</Label>
+                    <Label htmlFor="email" className="text-sm">E-posta</Label>
                     <Input
                       id="email"
                       type="email"
                       placeholder="ornek@email.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
+                      className="h-11"
                       required
                     />
                   </div>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label htmlFor="password">Şifre</Label>
-                      <a href="#" className="text-sm text-primary hover:underline">
+                      <Label htmlFor="password" className="text-sm">Şifre</Label>
+                      <a href="#" className="text-xs sm:text-sm text-primary hover:underline">
                         Şifremi Unuttum
                       </a>
                     </div>
@@ -104,10 +105,11 @@ const Login: React.FC = () => {
                       type="password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
+                      className="h-11"
                       required
                     />
                   </div>
-                  <Button type="submit" className="w-full" disabled={isSubmitting || loading}>
+                  <Button type="submit" className="w-full h-11" disabled={isSubmitting || loading}>
                     {isSubmitting || loading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -121,7 +123,7 @@ const Login: React.FC = () => {
               </TabsContent>
             </Tabs>
             <div className="mt-4 text-center">
-              <p>
+              <p className="text-sm">
                 Hesabınız yok mu?{' '}
                 <a href="/signup" className="text-primary hover:underline">
                   Hemen Kaydolun
@@ -129,7 +131,7 @@ const Login: React.FC = () => {
               </p>
             </div>
           </CardContent>
-          <CardFooter className="flex flex-col items-center text-center text-sm text-muted-foreground">
+          <CardFooter className="flex flex-col items-center text-center text-xs sm:text-sm text-muted-foreground px-4 sm:px-6">
             <p className="mt-2">
               © 2025 Carfy - Araç Servis Takip Uygulaması
             </p>
