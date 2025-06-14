@@ -19,6 +19,9 @@ interface ServiceData {
   laborCost: number;
   partsCost: number;
   arrivalDate: string;
+  complaint: string;
+  servicePerformed: string;
+  technician: string;
   parts: Array<{
     name: string;
     quantity: number;
@@ -92,6 +95,9 @@ serve(async (req) => {
       laborCost: Number(serviceData.labor_cost) || 0,
       partsCost: Number(serviceData.parts_cost) || 0,
       arrivalDate: serviceData.arrival_date || new Date().toISOString(),
+      complaint: serviceData.complaint || 'Belirtilmemiş',
+      servicePerformed: serviceData.work_done || 'Belirtilmemiş',
+      technician: serviceData.technician_name || '',
       parts: (partsData || []).map(part => ({
         name: part.part_name,
         quantity: part.quantity,
@@ -141,67 +147,132 @@ function generateInvoiceHTML(service: ServiceData): string {
     <html>
     <head>
       <meta charset="utf-8">
-      <title>Fatura</title>
+      <title>Servis Formu / Fatura</title>
       <style>
         ${getInvoiceCSS()}
       </style>
     </head>
     <body>
       <div class="invoice-page">
-        <!-- Header with company name on left and invoice details on right -->
+        <!-- Header Section -->
         <div class="header">
           <div class="company-section">
-            <h1 class="company-name">${service.customerName}</h1>
+            <div class="logo-placeholder">
+              <div class="logo-box">LOGO</div>
+            </div>
+            <h1 class="company-name">CARFY OTOSERVİS</h1>
+            <div class="company-details">
+              <div>Carfy Plaza No:123, İstanbul</div>
+              <div>Tel: 0212 123 45 67</div>
+              <div>E-posta: info@carfy.com</div>
+            </div>
           </div>
           <div class="invoice-section">
-            <h2 class="invoice-title">FATURA</h2>
+            <h2 class="invoice-title">SERVİS FORMU / FATURA</h2>
             <div class="invoice-details">
               <div class="detail-row">
                 <span class="label">Fatura No:</span>
                 <span class="value">${service.id.substring(0, 8)}</span>
               </div>
               <div class="detail-row">
-                <span class="label">Düzenlenme Tarihi:</span>
+                <span class="label">Düzenleme Tarihi:</span>
                 <span class="value">${currentDate}</span>
+              </div>
+              <div class="detail-row">
+                <span class="label">Servis Kayıt Tarihi:</span>
+                <span class="value">${arrivalDate}</span>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Customer Info Section -->
-        <div class="section">
-          <h3 class="section-title">ALICI BİLGİLERİ</h3>
-          <div class="customer-info">
-            <div class="info-line"><strong>${service.customerName}</strong></div>
-            <div class="info-line">${service.plateNumber} - ${service.make} ${service.model}</div>
-            <div class="info-line">Geliş KM: ${service.mileage.toLocaleString('tr-TR')}</div>
-            <div class="info-line">Geliş Tarihi: ${arrivalDate}</div>
+        <!-- Customer and Vehicle Info Section -->
+        <div class="info-section">
+          <div class="info-columns">
+            <div class="info-column">
+              <h3 class="info-title">MÜŞTERİ BİLGİLERİ</h3>
+              <div class="info-content">
+                <div class="info-line">
+                  <span class="info-label">Müşteri:</span>
+                  <span class="info-value">${service.customerName}</span>
+                </div>
+                <div class="info-line">
+                  <span class="info-label">İletişim:</span>
+                  <span class="info-value">-</span>
+                </div>
+              </div>
+            </div>
+            <div class="info-column">
+              <h3 class="info-title">ARAÇ BİLGİLERİ</h3>
+              <div class="info-content">
+                <div class="info-line">
+                  <span class="info-label">Plaka:</span>
+                  <span class="info-value">${service.plateNumber}</span>
+                </div>
+                <div class="info-line">
+                  <span class="info-label">Marka/Model:</span>
+                  <span class="info-value">${service.make} ${service.model}</span>
+                </div>
+                <div class="info-line">
+                  <span class="info-label">Yıl:</span>
+                  <span class="info-value">${service.year}</span>
+                </div>
+                <div class="info-line">
+                  <span class="info-label">Kilometre:</span>
+                  <span class="info-value">${service.mileage.toLocaleString('tr-TR')} km</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <!-- Parts and Services Section -->
-        <div class="section">
-          <h3 class="section-title">PARÇA VE İŞÇİLİK BİLGİLERİ</h3>
+        <!-- Service Details Section -->
+        <div class="service-details">
+          <div class="service-box">
+            <h3 class="service-title">MÜŞTERİ ŞİKAYET / TALEPLERİ</h3>
+            <div class="service-content">
+              ${service.complaint === 'Belirtilmemiş' ? 
+                'Müşteri tarafından özel bir talep belirtilmemiştir.' : 
+                service.complaint}
+            </div>
+          </div>
+          <div class="service-box">
+            <h3 class="service-title">YAPILAN İŞLEMLER VE TEKNİSYEN NOTLARI</h3>
+            <div class="service-content">
+              ${service.servicePerformed === 'Belirtilmemiş' ? 
+                'Yapılan işlemler servis dökümünde listelenmiştir.' : 
+                service.servicePerformed}
+            </div>
+            ${service.technician ? `
+              <div class="technician-info">
+                <strong>Teknisyen:</strong> ${service.technician}
+              </div>
+            ` : ''}
+          </div>
+        </div>
+
+        <!-- Parts and Services Table -->
+        <div class="table-section">
+          <h3 class="table-title">DETAYLI DÖKÜM (PARÇA VE İŞÇİLİK TABLOSU)</h3>
           <table class="items-table">
             <thead>
               <tr>
                 <th class="desc-col">AÇIKLAMA</th>
                 <th class="qty-col">MIKTAR</th>
-                <th class="tax-col">KDV</th>
-                <th class="price-col">BİRİM FİYATI</th>
-                <th class="total-col">TOPLAM</th>
+                <th class="price-col">BİRİM FİYAT</th>
+                <th class="tax-col">KDV ORANI</th>
+                <th class="total-col">TOPLAM TUTAR</th>
               </tr>
             </thead>
             <tbody>
               ${service.parts.map(part => {
-                const partSubtotal = (part.quantity * part.unitPrice) / (1 + taxRate);
                 return `
                 <tr>
                   <td>${part.name}</td>
                   <td class="center">${part.quantity}</td>
+                  <td class="right">₺${part.unitPrice.toFixed(2)}</td>
                   <td class="center">%18</td>
-                  <td class="right">${partSubtotal.toFixed(2)} TL</td>
-                  <td class="right">${(part.quantity * part.unitPrice).toFixed(2)} TL</td>
+                  <td class="right">₺${(part.quantity * part.unitPrice).toFixed(2)}</td>
                 </tr>
                 `;
               }).join('')}
@@ -209,9 +280,9 @@ function generateInvoiceHTML(service: ServiceData): string {
                 <tr>
                   <td>İşçilik</td>
                   <td class="center">1</td>
+                  <td class="right">₺${service.laborCost.toFixed(2)}</td>
                   <td class="center">%18</td>
-                  <td class="right">${(service.laborCost / (1 + taxRate)).toFixed(2)} TL</td>
-                  <td class="right">${service.laborCost.toFixed(2)} TL</td>
+                  <td class="right">₺${service.laborCost.toFixed(2)}</td>
                 </tr>
               ` : ''}
               ${service.parts.length === 0 && service.laborCost === 0 ? `
@@ -227,17 +298,30 @@ function generateInvoiceHTML(service: ServiceData): string {
         <div class="summary-section">
           <div class="summary-box">
             <div class="summary-row">
-              <span class="summary-label">ARA TOPLAM:</span>
-              <span class="summary-value">${subtotal.toFixed(2)} TL</span>
+              <span class="summary-label">Ara Toplam:</span>
+              <span class="summary-value">₺${subtotal.toFixed(2)}</span>
             </div>
             <div class="summary-row">
-              <span class="summary-label">VERGİLER:</span>
-              <span class="summary-value">${taxAmount.toFixed(2)} TL</span>
+              <span class="summary-label">Toplam KDV (%18):</span>
+              <span class="summary-value">₺${taxAmount.toFixed(2)}</span>
             </div>
             <div class="summary-row total-row">
-              <span class="summary-label"><strong>TOPLAM FİYAT:</strong></span>
-              <span class="summary-value"><strong>${service.totalCost.toFixed(2)} TL</strong></span>
+              <span class="summary-label"><strong>GENEL TOPLAM:</strong></span>
+              <span class="summary-value"><strong>₺${service.totalCost.toFixed(2)}</strong></span>
             </div>
+          </div>
+        </div>
+
+        <!-- Footer Section -->
+        <div class="footer">
+          <div class="footer-left">
+            <p>Bizi tercih ettiğiniz için teşekkür ederiz.</p>
+          </div>
+          <div class="footer-center">
+            <p>Ödeme Bilgileri: IBAN: TR00 0000 0000 0000 0000 0000 00</p>
+          </div>
+          <div class="footer-right">
+            <p>Vergi No: 123456789 - Vergi Dairesi: İstanbul</p>
           </div>
         </div>
       </div>
@@ -255,10 +339,10 @@ function getInvoiceCSS(): string {
     }
 
     body {
-      font-family: Arial, sans-serif;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       font-size: 12px;
       line-height: 1.4;
-      color: #000;
+      color: #333;
       background: white;
       padding: 0;
     }
@@ -272,24 +356,51 @@ function getInvoiceCSS(): string {
       box-sizing: border-box;
     }
 
+    /* Header Section */
     .header {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
       margin-bottom: 30px;
-      border-bottom: 1px solid #ddd;
+      border-bottom: 2px solid #ddd;
       padding-bottom: 20px;
     }
 
     .company-section {
       flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .logo-placeholder {
+      margin-bottom: 10px;
+    }
+
+    .logo-box {
+      width: 60px;
+      height: 40px;
+      border: 2px solid #ccc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: bold;
+      color: #999;
+      background-color: #f9f9f9;
     }
 
     .company-name {
-      font-size: 18px;
+      font-size: 20px;
       font-weight: bold;
-      color: #000;
-      margin: 0;
+      color: #2c3e50;
+      margin: 5px 0;
+    }
+
+    .company-details {
+      font-size: 11px;
+      color: #666;
+      line-height: 1.6;
     }
 
     .invoice-section {
@@ -298,91 +409,171 @@ function getInvoiceCSS(): string {
     }
 
     .invoice-title {
-      font-size: 20px;
+      font-size: 18px;
       font-weight: bold;
       margin: 0 0 15px 0;
-      color: #000;
+      color: #2c3e50;
+      background-color: #f8f9fa;
+      padding: 8px 12px;
+      border-radius: 4px;
     }
 
     .invoice-details {
-      font-size: 12px;
+      font-size: 11px;
     }
 
     .detail-row {
       display: flex;
       justify-content: flex-end;
-      margin: 5px 0;
-      gap: 10px;
+      margin: 6px 0;
+      gap: 15px;
     }
 
     .label {
       font-weight: bold;
+      color: #555;
     }
 
     .value {
       min-width: 100px;
+      color: #333;
     }
 
-    .section {
+    /* Info Section */
+    .info-section {
       margin-bottom: 25px;
     }
 
-    .section-title {
-      font-size: 14px;
+    .info-columns {
+      display: flex;
+      gap: 30px;
+    }
+
+    .info-column {
+      flex: 1;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 15px;
+      background-color: #fdfdfd;
+    }
+
+    .info-title {
+      font-size: 13px;
       font-weight: bold;
-      margin-bottom: 15px;
-      color: #000;
-      border-bottom: 1px solid #ddd;
+      margin-bottom: 12px;
+      color: #2c3e50;
+      border-bottom: 1px solid #eee;
       padding-bottom: 5px;
     }
 
-    .customer-info {
-      font-size: 12px;
+    .info-content {
+      font-size: 11px;
     }
 
     .info-line {
+      display: flex;
       margin: 8px 0;
+    }
+
+    .info-label {
+      font-weight: bold;
+      min-width: 80px;
+      color: #555;
+    }
+
+    .info-value {
+      color: #333;
+    }
+
+    /* Service Details */
+    .service-details {
+      margin-bottom: 25px;
+    }
+
+    .service-box {
+      margin-bottom: 15px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 15px;
+      background-color: #fdfdfd;
+    }
+
+    .service-title {
+      font-size: 13px;
+      font-weight: bold;
+      margin-bottom: 10px;
+      color: #2c3e50;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 5px;
+    }
+
+    .service-content {
+      font-size: 11px;
+      line-height: 1.6;
+      color: #333;
+    }
+
+    .technician-info {
+      margin-top: 10px;
+      font-size: 11px;
+      color: #666;
+    }
+
+    /* Table Section */
+    .table-section {
+      margin-bottom: 25px;
+    }
+
+    .table-title {
+      font-size: 14px;
+      font-weight: bold;
+      margin-bottom: 12px;
+      color: #2c3e50;
     }
 
     .items-table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 10px;
-      font-size: 11px;
+      border: 1px solid #000;
+      font-size: 10px;
     }
 
     .items-table th,
     .items-table td {
       border: 1px solid #000;
-      padding: 8px 5px;
+      padding: 10px 8px;
       text-align: left;
     }
 
     .items-table th {
-      background-color: #f8f8f8;
+      background-color: #f5f5f5;
       font-weight: bold;
-      font-size: 10px;
+      font-size: 9px;
+      text-align: center;
     }
 
-    .desc-col { width: 40%; }
+    .desc-col { width: 35%; text-align: left; }
     .qty-col { width: 12%; text-align: center; }
-    .tax-col { width: 12%; text-align: center; }
     .price-col { width: 18%; text-align: right; }
-    .total-col { width: 18%; text-align: right; }
+    .tax-col { width: 15%; text-align: center; }
+    .total-col { width: 20%; text-align: right; }
 
     .center { text-align: center; }
     .right { text-align: right; }
 
+    /* Summary Section */
     .summary-section {
-      margin-top: 30px;
+      margin-top: 20px;
       display: flex;
       justify-content: flex-end;
     }
 
     .summary-box {
-      width: 250px;
-      border: 1px solid #ddd;
+      width: 280px;
+      border: 1px solid #333;
+      border-radius: 6px;
       padding: 15px;
+      background-color: #f9f9f9;
     }
 
     .summary-row {
@@ -393,10 +584,13 @@ function getInvoiceCSS(): string {
     }
 
     .total-row {
-      border-top: 1px solid #000;
+      border-top: 2px solid #333;
       padding-top: 8px;
       margin-top: 15px;
-      font-size: 13px;
+      font-size: 14px;
+      background-color: #e8f4f8;
+      padding: 10px 0;
+      border-radius: 4px;
     }
 
     .summary-label {
@@ -405,6 +599,34 @@ function getInvoiceCSS(): string {
 
     .summary-value {
       font-weight: normal;
+      min-width: 80px;
+      text-align: right;
+    }
+
+    /* Footer Section */
+    .footer {
+      margin-top: 40px;
+      border-top: 1px solid #ddd;
+      padding-top: 15px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 9px;
+      color: #666;
+    }
+
+    .footer-left,
+    .footer-center,
+    .footer-right {
+      flex: 1;
+      text-align: center;
+    }
+
+    .footer-left {
+      text-align: left;
+    }
+
+    .footer-right {
+      text-align: right;
     }
 
     @media print {
