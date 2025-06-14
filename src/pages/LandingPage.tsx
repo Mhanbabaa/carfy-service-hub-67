@@ -1,3 +1,4 @@
+
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -7,6 +8,7 @@ import { useState } from "react";
 export default function LandingPage() {
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isYearly, setIsYearly] = useState(false);
 
   return (
     <div className="min-h-screen flex flex-col font-roboto bg-background text-foreground">
@@ -256,18 +258,32 @@ export default function LandingPage() {
                 Her büyüklükteki servis işletmesi için uygun fiyatlandırma seçenekleri
               </p>
               <div className="inline-flex items-center rounded-full border p-1 mt-8">
-                <button className="rounded-full px-4 py-2 text-sm font-medium bg-primary text-primary-foreground">Aylık</button>
-                <button className="rounded-full px-4 py-2 text-sm font-medium">Yıllık <span className="text-xs ml-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100 rounded-full px-2 py-0.5">%20 indirim</span></button>
+                <button 
+                  className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                    !isYearly ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'
+                  }`}
+                  onClick={() => setIsYearly(false)}
+                >
+                  Aylık
+                </button>
+                <button 
+                  className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                    isYearly ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'
+                  }`}
+                  onClick={() => setIsYearly(true)}
+                >
+                  Yıllık <span className="text-xs ml-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100 rounded-full px-2 py-0.5">%20 indirim</span>
+                </button>
               </div>
             </div>
 
-            <div className="grid md:grid-cols-3 gap-8">
+            <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
               {/* Free Plan */}
               <div className="bg-background rounded-xl border shadow-md p-8 hover:shadow-lg transition-shadow">
                 <h3 className="text-2xl font-semibold font-poppins mb-4">Ücretsiz Plan (Demo)</h3>
                 <div className="flex items-baseline mb-6">
                   <span className="text-4xl font-bold font-poppins">₺0</span>
-                  <span className="text-muted-foreground ml-1">/ay</span>
+                  <span className="text-muted-foreground ml-1">/{isYearly ? 'yıl' : 'ay'}</span>
                 </div>
                 <ul className="space-y-3 mb-8">
                   {["Temel araç ve müşteri takibi", "Servis işlemleri görüntüleme", "Sınırlı raporlar", "7 günlük deneme süresi"].map((feature, i) => (
@@ -289,9 +305,22 @@ export default function LandingPage() {
                 </div>
                 <h3 className="text-2xl font-semibold font-poppins mb-4">Standart Plan</h3>
                 <div className="flex items-baseline mb-6">
-                  <span className="text-4xl font-bold font-poppins">₺299</span>
-                  <span className="text-muted-foreground ml-1">/ay</span>
+                  <span className="text-4xl font-bold font-poppins">
+                    ₺{isYearly ? '5,999' : '499'}
+                  </span>
+                  <span className="text-muted-foreground ml-1">/{isYearly ? 'yıl' : 'ay'}</span>
+                  {isYearly && (
+                    <span className="ml-2 text-sm text-green-600 dark:text-green-400 font-medium">
+                      (%20 indirim)
+                    </span>
+                  )}
                 </div>
+                {isYearly && (
+                  <div className="mb-4 text-sm text-muted-foreground">
+                    <span className="line-through">₺7,488</span>
+                    <span className="ml-2 text-green-600 dark:text-green-400">₺1,489 tasarruf</span>
+                  </div>
+                )}
                 <ul className="space-y-3 mb-8">
                   {[
                     "Tam araç ve müşteri takibi",
@@ -299,32 +328,6 @@ export default function LandingPage() {
                     "Temel raporlar ve analizler",
                     "E-posta ve SMS bildirimleri",
                     "Sınırsız kullanıcı"
-                  ].map((feature, i) => (
-                    <li key={i} className="flex items-start">
-                      <Check className="h-5 w-5 text-primary shrink-0 mr-2" />
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-                <Button className="w-full" onClick={() => navigate("/login")}>
-                  Hemen Başlayın
-                </Button>
-              </div>
-
-              {/* Premium Plan */}
-              <div className="bg-background rounded-xl border shadow-md p-8 hover:shadow-lg transition-shadow">
-                <h3 className="text-2xl font-semibold font-poppins mb-4">Premium Plan</h3>
-                <div className="flex items-baseline mb-6">
-                  <span className="text-4xl font-bold font-poppins">₺499</span>
-                  <span className="text-muted-foreground ml-1">/ay</span>
-                </div>
-                <ul className="space-y-3 mb-8">
-                  {[
-                    "Standart Plan'daki tüm özellikler",
-                    "Gelişmiş raporlar ve analizler",
-                    "Özel dashboard",
-                    "Öncelikli destek",
-                    "API erişimi"
                   ].map((feature, i) => (
                     <li key={i} className="flex items-start">
                       <Check className="h-5 w-5 text-primary shrink-0 mr-2" />
