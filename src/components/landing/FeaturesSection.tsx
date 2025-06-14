@@ -1,4 +1,5 @@
 
+
 export const FeaturesSection = () => {
   return (
     <section id="features" className="py-20 bg-muted/50">
@@ -23,8 +24,8 @@ export const FeaturesSection = () => {
         <div className="grid md:grid-cols-2 gap-12 items-center mb-24">
           <div className="rounded-xl overflow-hidden shadow-lg border md:order-1 order-2">
             <img
-              src="/lovable-uploads/41c2a8e3-82c6-4b2d-b5b9-8b11e714601b.png"
-              alt="Servis Detayı Ekranı - Araç Bilgileri ve Ücret Takibi"
+              src="/lovable-uploads/315684ae-3c8c-4737-9fea-3d6f8e250541.png"
+              alt="Araç Servis Yönetimi - Tablet Kullanımı"
               className="w-full h-auto"
             />
           </div>
@@ -57,3 +58,4 @@ export const FeaturesSection = () => {
     </section>
   );
 };
+
