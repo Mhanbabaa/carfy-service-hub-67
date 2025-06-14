@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.0.0'
 
@@ -21,7 +22,7 @@ interface ServiceData {
   complaint: string;
   servicePerformed: string;
   technician: string;
-  tenantName: string; // Tenant adını ekledik
+  tenantName: string;
   parts: Array<{
     name: string;
     quantity: number;
@@ -98,7 +99,7 @@ serve(async (req) => {
       complaint: serviceData.complaint || 'Belirtilmemiş',
       servicePerformed: serviceData.work_done || 'Belirtilmemiş',
       technician: serviceData.technician_name || '',
-      tenantName: serviceData.tenant?.name || 'CARFY OTOSERVİS', // Dinamik tenant adı
+      tenantName: serviceData.tenant?.name || 'CARFY OTOSERVİS',
       parts: (partsData || []).map(part => ({
         name: part.part_name,
         quantity: part.quantity,
@@ -143,6 +144,11 @@ function generateInvoiceHTML(service: ServiceData): string {
   const subtotal = service.totalCost / (1 + taxRate);
   const taxAmount = service.totalCost - subtotal;
 
+  // Dinamik yükseklik için kontroller
+  const hasComplaint = service.complaint && service.complaint !== 'Belirtilmemiş';
+  const hasServicePerformed = service.servicePerformed && service.servicePerformed !== 'Belirtilmemiş';
+  const hasTechnician = service.technician && service.technician.trim() !== '';
+
   return `
     <!DOCTYPE html>
     <html>
@@ -150,7 +156,7 @@ function generateInvoiceHTML(service: ServiceData): string {
       <meta charset="utf-8">
       <title>Servis Formu / Fatura</title>
       <style>
-        ${getInvoiceCSS()}
+        ${getOptimizedInvoiceCSS()}
       </style>
     </head>
     <body>
@@ -227,102 +233,95 @@ function generateInvoiceHTML(service: ServiceData): string {
           </div>
         </div>
 
-        <!-- Service Details Section -->
+        <!-- Service Details Section (Dinamik yükseklik) -->
+        ${hasComplaint || hasServicePerformed ? `
         <div class="service-details">
-          <div class="service-box">
+          ${hasComplaint ? `
+          <div class="service-box ${!hasServicePerformed ? 'single-box' : ''}">
             <h3 class="service-title">MÜŞTERİ ŞİKAYET / TALEPLERİ</h3>
-            <div class="service-content">
-              ${service.complaint === 'Belirtilmemiş' ? 
-                'Müşteri tarafından özel bir talep belirtilmemiştir.' : 
-                service.complaint}
-            </div>
+            <div class="service-content">${service.complaint}</div>
           </div>
-          <div class="service-box">
+          ` : ''}
+          
+          ${hasServicePerformed ? `
+          <div class="service-box ${!hasComplaint ? 'single-box' : ''}">
             <h3 class="service-title">YAPILAN İŞLEMLER VE TEKNİSYEN NOTLARI</h3>
-            <div class="service-content">
-              ${service.servicePerformed === 'Belirtilmemiş' ? 
-                'Yapılan işlemler servis dökümünde listelenmiştir.' : 
-                service.servicePerformed}
-            </div>
-            ${service.technician ? `
+            <div class="service-content">${service.servicePerformed}</div>
+            ${hasTechnician ? `
               <div class="technician-info">
                 <strong>Teknisyen:</strong> ${service.technician}
               </div>
             ` : ''}
           </div>
+          ` : ''}
         </div>
+        ` : ''}
 
-        <!-- Parts and Services Table -->
-        <div class="table-section">
+        <!-- Parts and Services Table with integrated summary -->
+        <div class="table-summary-section">
           <h3 class="table-title">DETAYLI DÖKÜM (PARÇA VE İŞÇİLİK TABLOSU)</h3>
-          <table class="items-table">
-            <thead>
-              <tr>
-                <th class="desc-col">AÇIKLAMA</th>
-                <th class="qty-col">MIKTAR</th>
-                <th class="price-col">BİRİM FİYAT</th>
-                <th class="tax-col">KDV ORANI</th>
-                <th class="total-col">TOPLAM TUTAR</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${service.parts.map(part => {
-                return `
+          <div class="table-container">
+            <table class="items-table">
+              <thead>
                 <tr>
-                  <td>${part.name}</td>
-                  <td class="center">${part.quantity}</td>
-                  <td class="right">₺${part.unitPrice.toFixed(2)}</td>
-                  <td class="center">%18</td>
-                  <td class="right">₺${(part.quantity * part.unitPrice).toFixed(2)}</td>
+                  <th class="desc-col">AÇIKLAMA</th>
+                  <th class="qty-col">MIKTAR</th>
+                  <th class="price-col">BİRİM FİYAT</th>
+                  <th class="tax-col">KDV ORANI</th>
+                  <th class="total-col">TOPLAM TUTAR</th>
                 </tr>
-                `;
-              }).join('')}
-              ${service.laborCost > 0 ? `
-                <tr>
-                  <td>İşçilik</td>
-                  <td class="center">1</td>
-                  <td class="right">₺${service.laborCost.toFixed(2)}</td>
-                  <td class="center">%18</td>
-                  <td class="right">₺${service.laborCost.toFixed(2)}</td>
-                </tr>
-              ` : ''}
-              ${service.parts.length === 0 && service.laborCost === 0 ? `
-                <tr>
-                  <td colspan="5" class="center">Parça veya işçilik bulunmamaktadır</td>
-                </tr>
-              ` : ''}
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Summary Section -->
-        <div class="summary-section">
-          <div class="summary-box">
-            <div class="summary-row">
-              <span class="summary-label">Ara Toplam:</span>
-              <span class="summary-value">₺${subtotal.toFixed(2)}</span>
-            </div>
-            <div class="summary-row">
-              <span class="summary-label">Toplam KDV (%18):</span>
-              <span class="summary-value">₺${taxAmount.toFixed(2)}</span>
-            </div>
-            <div class="summary-row total-row">
-              <span class="summary-label"><strong>GENEL TOPLAM:</strong></span>
-              <span class="summary-value"><strong>₺${service.totalCost.toFixed(2)}</strong></span>
+              </thead>
+              <tbody>
+                ${service.parts.map(part => {
+                  return `
+                  <tr>
+                    <td>${part.name}</td>
+                    <td class="center">${part.quantity}</td>
+                    <td class="right">₺${part.unitPrice.toFixed(2)}</td>
+                    <td class="center">%18</td>
+                    <td class="right">₺${(part.quantity * part.unitPrice).toFixed(2)}</td>
+                  </tr>
+                  `;
+                }).join('')}
+                ${service.laborCost > 0 ? `
+                  <tr>
+                    <td>İşçilik</td>
+                    <td class="center">1</td>
+                    <td class="right">₺${service.laborCost.toFixed(2)}</td>
+                    <td class="center">%18</td>
+                    <td class="right">₺${service.laborCost.toFixed(2)}</td>
+                  </tr>
+                ` : ''}
+                ${service.parts.length === 0 && service.laborCost === 0 ? `
+                  <tr>
+                    <td colspan="5" class="center">Parça veya işçilik bulunmamaktadır</td>
+                  </tr>
+                ` : ''}
+              </tbody>
+            </table>
+            
+            <!-- Integrated Summary Box -->
+            <div class="summary-box">
+              <div class="summary-row">
+                <span class="summary-label">Ara Toplam:</span>
+                <span class="summary-value">₺${subtotal.toFixed(2)}</span>
+              </div>
+              <div class="summary-row">
+                <span class="summary-label">Toplam KDV (%18):</span>
+                <span class="summary-value">₺${taxAmount.toFixed(2)}</span>
+              </div>
+              <div class="summary-row total-row">
+                <span class="summary-label"><strong>GENEL TOPLAM:</strong></span>
+                <span class="summary-value"><strong>₺${service.totalCost.toFixed(2)}</strong></span>
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- Footer Section -->
+        <!-- Footer Section (Sabit konum) -->
         <div class="footer">
-          <div class="footer-left">
+          <div class="footer-content">
             <p>Bizi tercih ettiğiniz için teşekkür ederiz.</p>
-          </div>
-          <div class="footer-center">
-            <p>Ödeme Bilgileri: IBAN: TR00 0000 0000 0000 0000 0000 00</p>
-          </div>
-          <div class="footer-right">
-            <p>Vergi No: 123456789 - Vergi Dairesi: İstanbul</p>
           </div>
         </div>
       </div>
@@ -331,7 +330,7 @@ function generateInvoiceHTML(service: ServiceData): string {
   `
 }
 
-function getInvoiceCSS(): string {
+function getOptimizedInvoiceCSS(): string {
   return `
     * {
       margin: 0;
@@ -340,9 +339,9 @@ function getInvoiceCSS(): string {
     }
 
     body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      font-size: 12px;
-      line-height: 1.4;
+      font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-size: 11px;
+      line-height: 1.3;
       color: #333;
       background: white;
       padding: 0;
@@ -351,20 +350,24 @@ function getInvoiceCSS(): string {
     .invoice-page {
       width: 210mm;
       max-width: 210mm;
+      min-height: 297mm;
+      max-height: 297mm;
       margin: 0 auto;
-      padding: 20mm;
+      padding: 12mm 15mm;
       background: white;
       box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
     }
 
-    /* Header Section */
+    /* Header Section - Kompakt */
     .header {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      margin-bottom: 30px;
-      border-bottom: 2px solid #ddd;
-      padding-bottom: 20px;
+      margin-bottom: 15px;
+      border-bottom: 2px solid #2c5aa0;
+      padding-bottom: 12px;
     }
 
     .company-section {
@@ -375,33 +378,33 @@ function getInvoiceCSS(): string {
     }
 
     .logo-placeholder {
-      margin-bottom: 10px;
+      margin-bottom: 6px;
     }
 
     .logo-box {
-      width: 60px;
-      height: 40px;
-      border: 2px solid #ccc;
+      width: 50px;
+      height: 32px;
+      border: 2px solid #2c5aa0;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 10px;
+      font-size: 9px;
       font-weight: bold;
-      color: #999;
-      background-color: #f9f9f9;
+      color: #2c5aa0;
+      background-color: #f8f9fa;
     }
 
     .company-name {
-      font-size: 20px;
+      font-size: 18px;
       font-weight: bold;
-      color: #2c3e50;
-      margin: 5px 0;
+      color: #2c5aa0;
+      margin: 3px 0;
     }
 
     .company-details {
-      font-size: 11px;
+      font-size: 10px;
       color: #666;
-      line-height: 1.6;
+      line-height: 1.4;
     }
 
     .invoice-section {
@@ -410,24 +413,24 @@ function getInvoiceCSS(): string {
     }
 
     .invoice-title {
-      font-size: 18px;
+      font-size: 16px;
       font-weight: bold;
-      margin: 0 0 15px 0;
-      color: #2c3e50;
-      background-color: #f8f9fa;
-      padding: 8px 12px;
-      border-radius: 4px;
+      margin: 0 0 10px 0;
+      color: #2c5aa0;
+      background-color: #f0f4f8;
+      padding: 6px 10px;
+      border-radius: 3px;
     }
 
     .invoice-details {
-      font-size: 11px;
+      font-size: 10px;
     }
 
     .detail-row {
       display: flex;
       justify-content: flex-end;
-      margin: 6px 0;
-      gap: 15px;
+      margin: 4px 0;
+      gap: 12px;
     }
 
     .label {
@@ -436,49 +439,49 @@ function getInvoiceCSS(): string {
     }
 
     .value {
-      min-width: 100px;
+      min-width: 80px;
       color: #333;
     }
 
-    /* Info Section */
+    /* Info Section - Kompakt */
     .info-section {
-      margin-bottom: 25px;
+      margin-bottom: 12px;
     }
 
     .info-columns {
       display: flex;
-      gap: 30px;
+      gap: 20px;
     }
 
     .info-column {
       flex: 1;
       border: 1px solid #ddd;
-      border-radius: 6px;
-      padding: 15px;
-      background-color: #fdfdfd;
+      border-radius: 4px;
+      padding: 10px;
+      background-color: #fafbfc;
     }
 
     .info-title {
-      font-size: 13px;
+      font-size: 11px;
       font-weight: bold;
-      margin-bottom: 12px;
-      color: #2c3e50;
+      margin-bottom: 8px;
+      color: #2c5aa0;
       border-bottom: 1px solid #eee;
-      padding-bottom: 5px;
+      padding-bottom: 3px;
     }
 
     .info-content {
-      font-size: 11px;
+      font-size: 10px;
     }
 
     .info-line {
       display: flex;
-      margin: 8px 0;
+      margin: 5px 0;
     }
 
     .info-label {
       font-weight: bold;
-      min-width: 80px;
+      min-width: 70px;
       color: #555;
     }
 
@@ -486,70 +489,80 @@ function getInvoiceCSS(): string {
       color: #333;
     }
 
-    /* Service Details */
+    /* Service Details - Dinamik yükseklik */
     .service-details {
-      margin-bottom: 25px;
+      margin-bottom: 12px;
     }
 
     .service-box {
-      margin-bottom: 15px;
+      margin-bottom: 8px;
       border: 1px solid #ddd;
-      border-radius: 6px;
-      padding: 15px;
-      background-color: #fdfdfd;
+      border-radius: 4px;
+      padding: 8px;
+      background-color: #fafbfc;
+    }
+
+    .service-box.single-box {
+      margin-bottom: 12px;
     }
 
     .service-title {
-      font-size: 13px;
+      font-size: 11px;
       font-weight: bold;
-      margin-bottom: 10px;
-      color: #2c3e50;
+      margin-bottom: 6px;
+      color: #2c5aa0;
       border-bottom: 1px solid #eee;
-      padding-bottom: 5px;
+      padding-bottom: 3px;
     }
 
     .service-content {
-      font-size: 11px;
-      line-height: 1.6;
+      font-size: 10px;
+      line-height: 1.4;
       color: #333;
     }
 
     .technician-info {
-      margin-top: 10px;
-      font-size: 11px;
+      margin-top: 6px;
+      font-size: 10px;
       color: #666;
     }
 
-    /* Table Section */
-    .table-section {
-      margin-bottom: 25px;
+    /* Table and Summary Section - Birleştirilmiş */
+    .table-summary-section {
+      flex: 1;
+      margin-bottom: 12px;
     }
 
     .table-title {
-      font-size: 14px;
+      font-size: 12px;
       font-weight: bold;
-      margin-bottom: 12px;
-      color: #2c3e50;
+      margin-bottom: 8px;
+      color: #2c5aa0;
+    }
+
+    .table-container {
+      position: relative;
     }
 
     .items-table {
       width: 100%;
       border-collapse: collapse;
-      border: 1px solid #000;
-      font-size: 10px;
+      border: 1px solid #333;
+      font-size: 9px;
+      margin-bottom: 10px;
     }
 
     .items-table th,
     .items-table td {
-      border: 1px solid #000;
-      padding: 10px 8px;
+      border: 1px solid #333;
+      padding: 6px 5px;
       text-align: left;
     }
 
     .items-table th {
       background-color: #f5f5f5;
       font-weight: bold;
-      font-size: 9px;
+      font-size: 8px;
       text-align: center;
     }
 
@@ -562,36 +575,31 @@ function getInvoiceCSS(): string {
     .center { text-align: center; }
     .right { text-align: right; }
 
-    /* Summary Section */
-    .summary-section {
-      margin-top: 20px;
-      display: flex;
-      justify-content: flex-end;
-    }
-
+    /* Summary Box - Tablo altında entegre */
     .summary-box {
-      width: 280px;
-      border: 1px solid #333;
-      border-radius: 6px;
-      padding: 15px;
-      background-color: #f9f9f9;
+      width: 240px;
+      border: 1px solid #2c5aa0;
+      border-radius: 4px;
+      padding: 10px;
+      background-color: #f8f9fa;
+      margin-left: auto;
     }
 
     .summary-row {
       display: flex;
       justify-content: space-between;
-      margin: 8px 0;
-      font-size: 12px;
+      margin: 5px 0;
+      font-size: 10px;
     }
 
     .total-row {
-      border-top: 2px solid #333;
-      padding-top: 8px;
-      margin-top: 15px;
-      font-size: 14px;
+      border-top: 2px solid #2c5aa0;
+      padding-top: 6px;
+      margin-top: 8px;
+      font-size: 12px;
       background-color: #e8f4f8;
-      padding: 10px 0;
-      border-radius: 4px;
+      padding: 8px 0 4px 0;
+      border-radius: 2px;
     }
 
     .summary-label {
@@ -600,34 +608,21 @@ function getInvoiceCSS(): string {
 
     .summary-value {
       font-weight: normal;
-      min-width: 80px;
+      min-width: 70px;
       text-align: right;
     }
 
-    /* Footer Section */
+    /* Footer Section - Sabit konum */
     .footer {
-      margin-top: 40px;
+      margin-top: auto;
       border-top: 1px solid #ddd;
-      padding-top: 15px;
-      display: flex;
-      justify-content: space-between;
+      padding-top: 8px;
       font-size: 9px;
       color: #666;
     }
 
-    .footer-left,
-    .footer-center,
-    .footer-right {
-      flex: 1;
+    .footer-content {
       text-align: center;
-    }
-
-    .footer-left {
-      text-align: left;
-    }
-
-    .footer-right {
-      text-align: right;
     }
 
     @media print {
@@ -639,8 +634,10 @@ function getInvoiceCSS(): string {
       .invoice-page {
         width: 100%;
         max-width: none;
+        min-height: 100vh;
+        max-height: 100vh;
         margin: 0;
-        padding: 15mm;
+        padding: 12mm 15mm;
         box-shadow: none;
       }
       
