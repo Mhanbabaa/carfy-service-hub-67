@@ -13,6 +13,8 @@ import { RevenueChart } from '@/components/revenue-chart';
 import { StatCard } from '@/components/stat-card';
 import { RecentServices } from '@/components/recent-services';
 import { DailySchedules } from '@/components/daily-schedules';
+import { LoadingOverlay } from '@/components/loading-overlay';
+import { AnimatedCarLoader } from '@/components/animated-car-loader';
 import { withTenantFilter } from '@/lib/tenant-utils';
 
 const Dashboard: React.FC = () => {
@@ -31,8 +33,8 @@ const Dashboard: React.FC = () => {
   if (!userProfile) {
     return (
       <div className="flex flex-col items-center justify-center h-screen">
-        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-        <h2 className="text-xl font-medium">Kullanıcı bilgileri yükleniyor...</h2>
+        <AnimatedCarLoader size={250} />
+        <h2 className="text-xl font-medium mt-6">Kullanıcı bilgileri yükleniyor...</h2>
       </div>
     );
   }
@@ -313,8 +315,7 @@ const Dashboard: React.FC = () => {
 
       {statsLoading ? (
         <div className="flex justify-center items-center p-8">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <span className="ml-2">Veriler yükleniyor...</span>
+          <AnimatedCarLoader size={180} />
         </div>
       ) : (
         <Tabs defaultValue="overview" className="space-y-4">
@@ -380,7 +381,7 @@ const Dashboard: React.FC = () => {
                 <CardContent className="pl-2">
                   {revenueLoading ? (
                     <div className="flex justify-center items-center h-40">
-                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                      <AnimatedCarLoader size={120} />
                     </div>
                   ) : (
                     <RevenueChart data={monthlyRevenueData || []} />
