@@ -1,3 +1,4 @@
+
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
@@ -226,7 +227,7 @@ export function AppSidebar() {
         </DropdownMenu>
         
         <div className="text-xs text-muted-foreground mt-2">
-          &copy; {new Date().getFullYear()} Carfy Otomotiv
+          &copy; {new Date().getFullYear()} CARFY Otomotiv
         </div>
       </SidebarFooter>
     </Sidebar>
