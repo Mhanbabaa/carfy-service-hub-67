@@ -50,9 +50,9 @@ interface SidebarLinkProps {
 function SidebarLink({ to, icon: Icon, label, isActive }: SidebarLinkProps) {
   return (
     <SidebarMenuItem>
-      <SidebarMenuButton asChild className={cn(isActive && "bg-sidebar-accent")}>
+      <SidebarMenuButton asChild isActive={isActive}>
         <Link to={to} className="flex items-center gap-3">
-          <Icon className="h-5 w-5" />
+          <Icon className="h-4 w-4" />
           <span>{label}</span>
         </Link>
       </SidebarMenuButton>
@@ -99,16 +99,25 @@ export function AppSidebar() {
       return userProfile?.email || "Kullanıcı";
     }
   };
+
+  // Check if user is superadmin
+  const isSuperAdmin = userProfile?.role === "superadmin";
   
   return (
-    <Sidebar className="border-r">
-      <SidebarHeader className="border-b py-4">
-        <div className="px-4 font-semibold text-lg">
-          Carfy Servis Hub
+    <Sidebar variant="inset">
+      <SidebarHeader>
+        <div className="flex items-center gap-2 px-2 py-1">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <Wrench className="h-4 w-4" />
+          </div>
+          <div className="grid flex-1 text-left text-sm leading-tight">
+            <span className="truncate font-semibold">Carfy Servis Hub</span>
+            <span className="truncate text-xs text-muted-foreground">Servis Yönetim</span>
+          </div>
         </div>
       </SidebarHeader>
       
-      <SidebarContent className="py-3">
+      <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>Ana Menü</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -180,35 +189,70 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {isSuperAdmin && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Yönetici</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarLink 
+                  to="/admin" 
+                  icon={Settings} 
+                  label="Yönetim Paneli" 
+                  isActive={currentPath.startsWith("/admin")} 
+                />
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
       
-      <SidebarFooter className="px-3 py-4 border-t border-sidebar-border">
+      <SidebarFooter>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              className="w-full justify-start h-auto p-2 hover:bg-sidebar-accent"
+            <SidebarMenuButton
+              size="lg"
+              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
-              <div className="flex items-center gap-3 w-full">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+              <Avatar className="h-8 w-8 rounded-lg">
+                <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
+                  {getInitials(userProfile?.first_name, userProfile?.last_name, userProfile?.email)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="grid flex-1 text-left text-sm leading-tight">
+                <span className="truncate font-semibold">
+                  {getUserDisplayName()}
+                </span>
+                <span className="truncate text-xs text-muted-foreground">
+                  {userProfile?.email}
+                </span>
+              </div>
+              <ChevronUp className="ml-auto size-4" />
+            </SidebarMenuButton>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+            side="bottom"
+            align="end"
+            sideOffset={4}
+          >
+            <DropdownMenuLabel className="p-0 font-normal">
+              <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+                <Avatar className="h-8 w-8 rounded-lg">
+                  <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
                     {getInitials(userProfile?.first_name, userProfile?.last_name, userProfile?.email)}
                   </AvatarFallback>
                 </Avatar>
-                <div className="flex flex-col items-start text-sm flex-1">
-                  <span className="font-medium truncate max-w-[120px]">
+                <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-semibold">
                     {getUserDisplayName()}
                   </span>
-                  <span className="text-xs text-muted-foreground truncate max-w-[120px]">
+                  <span className="truncate text-xs text-muted-foreground">
                     {userProfile?.email}
                   </span>
                 </div>
-                <ChevronUp className="h-4 w-4 text-muted-foreground" />
               </div>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>Hesap Ayarları</DropdownMenuLabel>
+            </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => navigate('/profile')}>
               <User className="mr-2 h-4 w-4" />
@@ -225,10 +269,6 @@ export function AppSidebar() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        
-        <div className="text-xs text-muted-foreground mt-2">
-          &copy; {new Date().getFullYear()} CARFY Otomotiv
-        </div>
       </SidebarFooter>
     </Sidebar>
   );
