@@ -1,6 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { Service } from '@/types/service';
+import { useAuth } from '@/contexts/AuthContext';
 
 export const generateServiceInvoicePDF = async (service: Service): Promise<void> => {
   try {
@@ -45,13 +46,32 @@ export const generateServiceInvoicePDF = async (service: Service): Promise<void>
   }
 };
 
-// Fallback yazdırma modalı
-const openPrintModal = (service: Service) => {
+// Fallback yazdırma modalı - tenant adını dinamik olarak al
+const openPrintModal = async (service: Service) => {
   const currentDate = new Date().toLocaleDateString('tr-TR');
   const arrivalDate = service.arrivalDate ? new Date(service.arrivalDate).toLocaleDateString('tr-TR') : '-';
   const taxRate = 0.18;
   const subtotal = service.totalCost / (1 + taxRate);
   const taxAmount = service.totalCost - subtotal;
+
+  // Tenant bilgisini al
+  let tenantName = 'CARFY OTOSERVİS'; // default değer
+  try {
+    const { data: userData } = await supabase.auth.getUser();
+    if (userData?.user) {
+      const { data: userProfile } = await supabase
+        .from('users')
+        .select('tenant:tenants(name)')
+        .eq('id', userData.user.id)
+        .single();
+      
+      if (userProfile?.tenant?.name) {
+        tenantName = userProfile.tenant.name;
+      }
+    }
+  } catch (error) {
+    console.error('Tenant bilgisi alınamadı:', error);
+  }
 
   const printContent = `
     <!DOCTYPE html>
@@ -192,7 +212,7 @@ const openPrintModal = (service: Service) => {
       <div class="header">
         <div class="company-section">
           <div class="logo-placeholder">LOGO</div>
-          <h1>CARFY OTOSERVİS</h1>
+          <h1>${tenantName}</h1>
           <div>Carfy Plaza No:123, İstanbul</div>
           <div>Tel: 0212 123 45 67</div>
           <div>E-posta: info@carfy.com</div>

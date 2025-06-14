@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.0.0'
 
@@ -22,6 +21,7 @@ interface ServiceData {
   complaint: string;
   servicePerformed: string;
   technician: string;
+  tenantName: string; // Tenant adını ekledik
   parts: Array<{
     name: string;
     quantity: number;
@@ -59,10 +59,10 @@ serve(async (req) => {
 
     const { serviceId } = await req.json()
     
-    // Get service details from database
+    // Get service details from database with tenant info
     const { data: serviceData, error } = await supabaseClient
       .from('service_details')
-      .select('*')
+      .select('*, tenant:tenants(name)')
       .eq('id', serviceId)
       .single()
 
@@ -98,6 +98,7 @@ serve(async (req) => {
       complaint: serviceData.complaint || 'Belirtilmemiş',
       servicePerformed: serviceData.work_done || 'Belirtilmemiş',
       technician: serviceData.technician_name || '',
+      tenantName: serviceData.tenant?.name || 'CARFY OTOSERVİS', // Dinamik tenant adı
       parts: (partsData || []).map(part => ({
         name: part.part_name,
         quantity: part.quantity,
@@ -160,7 +161,7 @@ function generateInvoiceHTML(service: ServiceData): string {
             <div class="logo-placeholder">
               <div class="logo-box">LOGO</div>
             </div>
-            <h1 class="company-name">CARFY OTOSERVİS</h1>
+            <h1 class="company-name">${service.tenantName}</h1>
             <div class="company-details">
               <div>Carfy Plaza No:123, İstanbul</div>
               <div>Tel: 0212 123 45 67</div>
