@@ -53,8 +53,8 @@ export default function BrandsPage() {
     }
   );
 
-  const brands = brandsData?.data || [];
-  const models = modelsData?.data || [];
+  const brands = (brandsData?.data || []) as CarBrand[];
+  const models = (modelsData?.data || []) as CarModel[];
 
   // Popular brands (you can make this dynamic later)
   const popularBrands = ['BMW', 'Mercedes', 'Audi', 'Volkswagen', 'Ford', 'Toyota'];
