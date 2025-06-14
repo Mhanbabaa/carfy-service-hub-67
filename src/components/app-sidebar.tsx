@@ -39,6 +39,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { getTenantName } from "@/utils/pdf/tenantUtils";
+import { useState, useEffect } from "react";
 
 interface SidebarLinkProps {
   to: string;
@@ -50,7 +52,7 @@ interface SidebarLinkProps {
 function SidebarLink({ to, icon: Icon, label, isActive }: SidebarLinkProps) {
   return (
     <SidebarMenuItem>
-      <SidebarMenuButton asChild isActive={isActive}>
+      <SidebarMenuButton asChild isActive={isActive} tooltip={label}>
         <Link to={to} className="flex items-center gap-3">
           <Icon className="h-4 w-4" />
           <span>{label}</span>
@@ -65,6 +67,16 @@ export function AppSidebar() {
   const currentPath = location.pathname;
   const { userProfile, signOut } = useAuth();
   const navigate = useNavigate();
+  const [tenantName, setTenantName] = useState("CARFY");
+  
+  useEffect(() => {
+    const fetchTenantName = async () => {
+      const name = await getTenantName();
+      setTenantName(name);
+    };
+    
+    fetchTenantName();
+  }, []);
   
   const handleSignOut = async () => {
     try {
@@ -104,14 +116,14 @@ export function AppSidebar() {
   const isSuperAdmin = userProfile?.role === "superadmin";
   
   return (
-    <Sidebar variant="inset">
+    <Sidebar variant="inset" collapsible="icon">
       <SidebarHeader>
         <div className="flex items-center gap-2 px-2 py-1">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <Wrench className="h-4 w-4" />
           </div>
           <div className="grid flex-1 text-left text-sm leading-tight">
-            <span className="truncate font-semibold">Carfy Servis Hub</span>
+            <span className="truncate font-semibold">{tenantName}</span>
             <span className="truncate text-xs text-muted-foreground">Servis Yönetim</span>
           </div>
         </div>
