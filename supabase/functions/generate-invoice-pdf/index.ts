@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.0.0'
 
@@ -156,7 +155,7 @@ function generateOptimizedInvoiceHTML(service: ServiceData): string {
     </head>
     <body>
       <div class="invoice-page">
-        <!-- Header Section -->
+        <!-- Header Section - Fixed at top -->
         <div class="header">
           <div class="company-section">
             <div class="logo-placeholder">
@@ -188,106 +187,114 @@ function generateOptimizedInvoiceHTML(service: ServiceData): string {
           </div>
         </div>
 
-        <!-- Customer and Vehicle Info Section -->
-        <div class="info-section">
-          <div class="info-columns">
-            <div class="info-column">
-              <h3 class="info-title">MÜŞTERİ BİLGİLERİ</h3>
-              <div class="info-content">
-                <div class="info-line">
-                  <span class="info-label">Müşteri:</span>
-                  <span class="info-value">${service.customerName}</span>
-                </div>
-                <div class="info-line">
-                  <span class="info-label">İletişim:</span>
-                  <span class="info-value">-</span>
+        <!-- Main Content Area - Flexible distribution -->
+        <div class="main-content">
+          <!-- Customer and Vehicle Info Section -->
+          <div class="info-section">
+            <div class="info-columns">
+              <div class="info-column">
+                <h3 class="info-title">MÜŞTERİ BİLGİLERİ</h3>
+                <div class="info-content">
+                  <div class="info-line">
+                    <span class="info-label">Müşteri:</span>
+                    <span class="info-value">${service.customerName}</span>
+                  </div>
+                  <div class="info-line">
+                    <span class="info-label">İletişim:</span>
+                    <span class="info-value">-</span>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div class="info-column">
-              <h3 class="info-title">ARAÇ BİLGİLERİ</h3>
-              <div class="info-content">
-                <div class="info-line">
-                  <span class="info-label">Plaka:</span>
-                  <span class="info-value">${service.plateNumber}</span>
-                </div>
-                <div class="info-line">
-                  <span class="info-label">Marka/Model:</span>
-                  <span class="info-value">${service.make} ${service.model}</span>
-                </div>
-                <div class="info-line">
-                  <span class="info-label">Yıl:</span>
-                  <span class="info-value">${service.year}</span>
-                </div>
-                <div class="info-line">
-                  <span class="info-label">Kilometre:</span>
-                  <span class="info-value">${service.mileage.toLocaleString('tr-TR')} km</span>
+              <div class="info-column">
+                <h3 class="info-title">ARAÇ BİLGİLERİ</h3>
+                <div class="info-content">
+                  <div class="info-line">
+                    <span class="info-label">Plaka:</span>
+                    <span class="info-value">${service.plateNumber}</span>
+                  </div>
+                  <div class="info-line">
+                    <span class="info-label">Marka/Model:</span>
+                    <span class="info-value">${service.make} ${service.model}</span>
+                  </div>
+                  <div class="info-line">
+                    <span class="info-label">Yıl:</span>
+                    <span class="info-value">${service.year}</span>
+                  </div>
+                  <div class="info-line">
+                    <span class="info-label">Kilometre:</span>
+                    <span class="info-value">${service.mileage.toLocaleString('tr-TR')} km</span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- Parts and Services Table -->
-        <div class="table-section">
-          <h3 class="table-title">DETAYLI DÖKÜM (PARÇA VE İŞÇİLİK TABLOSU)</h3>
-          <div class="table-container">
-            <table class="items-table">
-              <thead>
-                <tr>
-                  <th class="desc-col">AÇIKLAMA</th>
-                  <th class="qty-col">MIKTAR</th>
-                  <th class="price-col">BİRİM FİYAT</th>
-                  <th class="tax-col">KDV ORANI</th>
-                  <th class="total-col">TOPLAM TUTAR</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${service.parts.map(part => {
-                  return `
+          <!-- Parts and Services Table -->
+          <div class="table-section">
+            <h3 class="table-title">DETAYLI DÖKÜM (PARÇA VE İŞÇİLİK TABLOSU)</h3>
+            <div class="table-container">
+              <table class="items-table">
+                <thead>
                   <tr>
-                    <td>${part.name}</td>
-                    <td class="center">${part.quantity}</td>
-                    <td class="right">₺${part.unitPrice.toFixed(2)}</td>
-                    <td class="center">%18</td>
-                    <td class="right">₺${(part.quantity * part.unitPrice).toFixed(2)}</td>
+                    <th class="desc-col">AÇIKLAMA</th>
+                    <th class="qty-col">MIKTAR</th>
+                    <th class="price-col">BİRİM FİYAT</th>
+                    <th class="tax-col">KDV ORANI</th>
+                    <th class="total-col">TOPLAM TUTAR</th>
                   </tr>
-                  `;
-                }).join('')}
-                ${service.laborCost > 0 ? `
-                  <tr>
-                    <td>İşçilik</td>
-                    <td class="center">1</td>
-                    <td class="right">₺${service.laborCost.toFixed(2)}</td>
-                    <td class="center">%18</td>
-                    <td class="right">₺${service.laborCost.toFixed(2)}</td>
-                  </tr>
-                ` : ''}
-                ${service.parts.length === 0 && service.laborCost === 0 ? `
-                  <tr>
-                    <td colspan="5" class="center">Parça veya işçilik bulunmamaktadır</td>
-                  </tr>
-                ` : ''}
-              </tbody>
-            </table>
-            
-            <!-- Summary Box -->
-            <div class="summary-container">
-              <div class="summary-box">
-                <div class="summary-row">
-                  <span class="summary-label">Ara Toplam:</span>
-                  <span class="summary-value">₺${subtotal.toFixed(2)}</span>
-                </div>
-                <div class="summary-row">
-                  <span class="summary-label">Toplam KDV (%18):</span>
-                  <span class="summary-value">₺${taxAmount.toFixed(2)}</span>
-                </div>
-                <div class="summary-row total-row">
-                  <span class="summary-label"><strong>GENEL TOPLAM:</strong></span>
-                  <span class="summary-value"><strong>₺${service.totalCost.toFixed(2)}</strong></span>
+                </thead>
+                <tbody>
+                  ${service.parts.map(part => {
+                    return `
+                    <tr>
+                      <td>${part.name}</td>
+                      <td class="center">${part.quantity}</td>
+                      <td class="right">₺${part.unitPrice.toFixed(2)}</td>
+                      <td class="center">%18</td>
+                      <td class="right">₺${(part.quantity * part.unitPrice).toFixed(2)}</td>
+                    </tr>
+                    `;
+                  }).join('')}
+                  ${service.laborCost > 0 ? `
+                    <tr>
+                      <td>İşçilik</td>
+                      <td class="center">1</td>
+                      <td class="right">₺${service.laborCost.toFixed(2)}</td>
+                      <td class="center">%18</td>
+                      <td class="right">₺${service.laborCost.toFixed(2)}</td>
+                    </tr>
+                  ` : ''}
+                  ${service.parts.length === 0 && service.laborCost === 0 ? `
+                    <tr>
+                      <td colspan="5" class="center">Parça veya işçilik bulunmamaktadır</td>
+                    </tr>
+                  ` : ''}
+                </tbody>
+              </table>
+              
+              <!-- Summary Box -->
+              <div class="summary-container">
+                <div class="summary-box">
+                  <div class="summary-row">
+                    <span class="summary-label">Ara Toplam:</span>
+                    <span class="summary-value">₺${subtotal.toFixed(2)}</span>
+                  </div>
+                  <div class="summary-row">
+                    <span class="summary-label">Toplam KDV (%18):</span>
+                    <span class="summary-value">₺${taxAmount.toFixed(2)}</span>
+                  </div>
+                  <div class="summary-row total-row">
+                    <span class="summary-label"><strong>GENEL TOPLAM:</strong></span>
+                    <span class="summary-value"><strong>₺${service.totalCost.toFixed(2)}</strong></span>
+                  </div>
                 </div>
               </div>
             </div>
+          </div>
+
+          <!-- Thank You Note - Part of flexible content -->
+          <div class="thank-you-note">
+            <p>Bizi tercih ettiğiniz için teşekkür ederiz.</p>
           </div>
         </div>
 
@@ -314,7 +321,7 @@ function getCompactInvoiceCSS(): string {
     body {
       font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       font-size: 10px;
-      line-height: 1.2;
+      line-height: 1.4;
       color: #333333;
       background: white;
       padding: 0;
@@ -326,7 +333,7 @@ function getCompactInvoiceCSS(): string {
       height: 297mm;
       max-height: 297mm;
       margin: 0 auto;
-      padding: 15mm;
+      padding: 20mm;
       background: white;
       box-sizing: border-box;
       position: relative;
@@ -334,14 +341,15 @@ function getCompactInvoiceCSS(): string {
       flex-direction: column;
     }
 
-    /* Header Section - Ultra Compact */
+    /* Header Section - Fixed at top */
     .header {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      margin-bottom: 12px;
+      margin-bottom: 0;
       border-bottom: 2px solid #2c5aa0;
-      padding-bottom: 8px;
+      padding-bottom: 12px;
+      flex-shrink: 0;
     }
 
     .company-section {
@@ -352,12 +360,12 @@ function getCompactInvoiceCSS(): string {
     }
 
     .logo-placeholder {
-      margin-bottom: 4px;
+      margin-bottom: 8px;
     }
 
     .logo-box {
-      width: 40px;
-      height: 26px;
+      width: 45px;
+      height: 30px;
       border: 1px solid #2c5aa0;
       display: flex;
       align-items: center;
@@ -369,16 +377,16 @@ function getCompactInvoiceCSS(): string {
     }
 
     .company-name {
-      font-size: 16px;
+      font-size: 18px;
       font-weight: bold;
       color: #2c5aa0;
-      margin: 2px 0;
+      margin: 4px 0 8px 0;
     }
 
     .company-details {
-      font-size: 9px;
+      font-size: 10px;
       color: #666;
-      line-height: 1.3;
+      line-height: 1.4;
     }
 
     .invoice-section {
@@ -387,24 +395,24 @@ function getCompactInvoiceCSS(): string {
     }
 
     .invoice-title {
-      font-size: 14px;
+      font-size: 16px;
       font-weight: bold;
-      margin: 0 0 8px 0;
+      margin: 0 0 12px 0;
       color: #2c5aa0;
       background-color: #f0f4f8;
-      padding: 4px 8px;
-      border-radius: 3px;
+      padding: 8px 12px;
+      border-radius: 4px;
     }
 
     .invoice-details {
-      font-size: 9px;
+      font-size: 10px;
     }
 
     .detail-row {
       display: flex;
       justify-content: flex-end;
-      margin: 3px 0;
-      gap: 10px;
+      margin: 4px 0;
+      gap: 12px;
     }
 
     .label {
@@ -413,49 +421,59 @@ function getCompactInvoiceCSS(): string {
     }
 
     .value {
-      min-width: 70px;
+      min-width: 80px;
       color: #333;
     }
 
-    /* Info Section - Minimal padding */
+    /* Main Content Area - Flexible distribution */
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      margin-top: 25px;
+      margin-bottom: 25px;
+    }
+
+    /* Info Section */
     .info-section {
-      margin-bottom: 10px;
+      margin-bottom: 0;
     }
 
     .info-columns {
       display: flex;
-      gap: 15px;
+      gap: 20px;
     }
 
     .info-column {
       flex: 1;
       border: 1px solid #ddd;
-      border-radius: 3px;
-      padding: 8px;
+      border-radius: 4px;
+      padding: 12px;
       background-color: #fafbfc;
     }
 
     .info-title {
-      font-size: 10px;
+      font-size: 11px;
       font-weight: bold;
-      margin-bottom: 6px;
+      margin-bottom: 8px;
       color: #2c5aa0;
       border-bottom: 1px solid #eee;
-      padding-bottom: 2px;
+      padding-bottom: 3px;
     }
 
     .info-content {
-      font-size: 9px;
+      font-size: 10px;
     }
 
     .info-line {
       display: flex;
-      margin: 3px 0;
+      margin: 4px 0;
     }
 
     .info-label {
       font-weight: bold;
-      min-width: 60px;
+      min-width: 70px;
       color: #555;
     }
 
@@ -463,16 +481,15 @@ function getCompactInvoiceCSS(): string {
       color: #333;
     }
 
-    /* Table Section - Maximized */
+    /* Table Section */
     .table-section {
-      flex: 1;
-      margin-bottom: 40px;
+      margin-bottom: 0;
     }
 
     .table-title {
-      font-size: 11px;
+      font-size: 12px;
       font-weight: bold;
-      margin-bottom: 6px;
+      margin-bottom: 10px;
       color: #2c5aa0;
     }
 
@@ -484,21 +501,21 @@ function getCompactInvoiceCSS(): string {
       width: 100%;
       border-collapse: collapse;
       border: 1px solid #333;
-      font-size: 8px;
-      margin-bottom: 8px;
+      font-size: 9px;
+      margin-bottom: 15px;
     }
 
     .items-table th,
     .items-table td {
       border: 1px solid #333;
-      padding: 4px 3px;
+      padding: 6px 4px;
       text-align: left;
     }
 
     .items-table th {
       background-color: #f5f5f5;
       font-weight: bold;
-      font-size: 7px;
+      font-size: 8px;
       text-align: center;
     }
 
@@ -515,33 +532,33 @@ function getCompactInvoiceCSS(): string {
     .summary-container {
       display: flex;
       justify-content: flex-end;
-      margin-top: 8px;
+      margin-bottom: 0;
     }
 
     .summary-box {
-      width: 200px;
+      width: 220px;
       border: 1px solid #2c5aa0;
-      border-radius: 3px;
-      padding: 8px;
+      border-radius: 4px;
+      padding: 12px;
       background-color: #f8f9fa;
     }
 
     .summary-row {
       display: flex;
       justify-content: space-between;
-      margin: 3px 0;
-      font-size: 9px;
+      margin: 4px 0;
+      font-size: 10px;
     }
 
     .total-row {
-      border-top: 1px solid #2c5aa0;
-      padding-top: 4px;
-      margin-top: 6px;
-      font-size: 10px;
+      border-top: 2px solid #2c5aa0;
+      padding-top: 6px;
+      margin-top: 8px;
+      font-size: 11px;
       font-weight: bold;
       background-color: #e8f4f8;
-      padding: 6px 0 3px 0;
-      border-radius: 2px;
+      padding: 8px 0 4px 0;
+      border-radius: 3px;
     }
 
     .summary-label {
@@ -550,20 +567,30 @@ function getCompactInvoiceCSS(): string {
 
     .summary-value {
       font-weight: normal;
-      min-width: 60px;
+      min-width: 70px;
       text-align: right;
+    }
+
+    /* Thank You Note - Part of flexible content */
+    .thank-you-note {
+      text-align: center;
+      font-size: 11px;
+      color: #666;
+      margin-bottom: 0;
+      padding: 10px 0;
     }
 
     /* Footer - Absolute positioning */
     .footer {
       position: absolute;
-      bottom: 15mm;
-      left: 15mm;
-      right: 15mm;
+      bottom: 20mm;
+      left: 20mm;
+      right: 20mm;
       border-top: 1px solid #ddd;
-      padding-top: 6px;
-      font-size: 8px;
-      color: #666;
+      padding-top: 8px;
+      font-size: 9px;
+      color: #888;
+      flex-shrink: 0;
     }
 
     .footer-content {
@@ -582,7 +609,7 @@ function getCompactInvoiceCSS(): string {
         height: 100vh;
         max-height: 100vh;
         margin: 0;
-        padding: 15mm;
+        padding: 20mm;
         box-shadow: none;
       }
       

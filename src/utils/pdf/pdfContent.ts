@@ -67,88 +67,96 @@ export const generateInvoiceContent = (
       </div>
     </div>
     
-    <!-- Customer and Vehicle Info Section -->
-    <div class="info-section">
-      <div class="info-columns">
-        <div class="info-column">
-          <div class="info-title">MÜŞTERİ BİLGİLERİ</div>
-          <div class="info-content">
-            <div class="info-line">
-              <span class="info-label">Müşteri:</span>
-              <span class="info-value">${service.customerName}</span>
-            </div>
-            <div class="info-line">
-              <span class="info-label">İletişim:</span>
-              <span class="info-value">-</span>
+    <!-- Main Content Area with Flexible Distribution -->
+    <div class="main-content">
+      <!-- Customer and Vehicle Info Section -->
+      <div class="info-section">
+        <div class="info-columns">
+          <div class="info-column">
+            <div class="info-title">MÜŞTERİ BİLGİLERİ</div>
+            <div class="info-content">
+              <div class="info-line">
+                <span class="info-label">Müşteri:</span>
+                <span class="info-value">${service.customerName}</span>
+              </div>
+              <div class="info-line">
+                <span class="info-label">İletişim:</span>
+                <span class="info-value">-</span>
+              </div>
             </div>
           </div>
-        </div>
-        <div class="info-column">
-          <div class="info-title">ARAÇ BİLGİLERİ</div>
-          <div class="info-content">
-            <div class="info-line">
-              <span class="info-label">Plaka:</span>
-              <span class="info-value">${service.plateNumber}</span>
-            </div>
-            <div class="info-line">
-              <span class="info-label">Marka/Model:</span>
-              <span class="info-value">${service.make} ${service.model}</span>
-            </div>
-            <div class="info-line">
-              <span class="info-label">Yıl:</span>
-              <span class="info-value">${service.year}</span>
-            </div>
-            <div class="info-line">
-              <span class="info-label">Kilometre:</span>
-              <span class="info-value">${service.mileage.toLocaleString('tr-TR')} km</span>
+          <div class="info-column">
+            <div class="info-title">ARAÇ BİLGİLERİ</div>
+            <div class="info-content">
+              <div class="info-line">
+                <span class="info-label">Plaka:</span>
+                <span class="info-value">${service.plateNumber}</span>
+              </div>
+              <div class="info-line">
+                <span class="info-label">Marka/Model:</span>
+                <span class="info-value">${service.make} ${service.model}</span>
+              </div>
+              <div class="info-line">
+                <span class="info-label">Yıl:</span>
+                <span class="info-value">${service.year}</span>
+              </div>
+              <div class="info-line">
+                <span class="info-label">Kilometre:</span>
+                <span class="info-value">${service.mileage.toLocaleString('tr-TR')} km</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Parts and Services Table -->
-    <div class="table-section">
-      <h3 class="table-title">DETAYLI DÖKÜM (PARÇA VE İŞÇİLİK TABLOSU)</h3>
-      <table class="items-table">
-        <thead>
-          <tr>
-            <th style="width: 40%; text-align: left;">AÇIKLAMA</th>
-            <th style="width: 12%; text-align: center;">MIKTAR</th>
-            <th style="width: 18%; text-align: right;">BİRİM FİYAT</th>
-            <th style="width: 15%; text-align: center;">KDV ORANI</th>
-            <th style="width: 15%; text-align: right;">TOPLAM TUTAR</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${partsRows}
-          ${laborRow}
-          ${emptyRow}
-        </tbody>
-      </table>
-      
-      <!-- Summary Box -->
-      <div class="summary-container">
-        <div class="summary-box">
-          <div class="summary-row">
-            <span class="summary-label">Ara Toplam:</span>
-            <span class="summary-value">₺${subtotal.toFixed(2)}</span>
-          </div>
-          <div class="summary-row">
-            <span class="summary-label">Toplam KDV (%18):</span>
-            <span class="summary-value">₺${taxAmount.toFixed(2)}</span>
-          </div>
-          <div class="summary-row total-row">
-            <span class="summary-label"><strong>GENEL TOPLAM:</strong></span>
-            <span class="summary-value"><strong>₺${service.totalCost.toFixed(2)}</strong></span>
+      <!-- Parts and Services Table -->
+      <div class="table-section">
+        <h3 class="table-title">DETAYLI DÖKÜM (PARÇA VE İŞÇİLİK TABLOSU)</h3>
+        <table class="items-table">
+          <thead>
+            <tr>
+              <th style="width: 40%; text-align: left;">AÇIKLAMA</th>
+              <th style="width: 12%; text-align: center;">MIKTAR</th>
+              <th style="width: 18%; text-align: right;">BİRİM FİYAT</th>
+              <th style="width: 15%; text-align: center;">KDV ORANI</th>
+              <th style="width: 15%; text-align: right;">TOPLAM TUTAR</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${partsRows}
+            ${laborRow}
+            ${emptyRow}
+          </tbody>
+        </table>
+        
+        <!-- Summary Box -->
+        <div class="summary-container">
+          <div class="summary-box">
+            <div class="summary-row">
+              <span class="summary-label">Ara Toplam:</span>
+              <span class="summary-value">₺${subtotal.toFixed(2)}</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Toplam KDV (%18):</span>
+              <span class="summary-value">₺${taxAmount.toFixed(2)}</span>
+            </div>
+            <div class="summary-row total-row">
+              <span class="summary-label"><strong>GENEL TOPLAM:</strong></span>
+              <span class="summary-value"><strong>₺${service.totalCost.toFixed(2)}</strong></span>
+            </div>
           </div>
         </div>
+      </div>
+
+      <!-- Thank You Note - Part of flexible content -->
+      <div class="thank-you-note">
+        <p>Bizi tercih ettiğiniz için teşekkür ederiz.</p>
       </div>
     </div>
 
     <!-- Footer Section - Absolutely positioned -->
     <div class="footer">
-      <div>Bizi tercih ettiğiniz için teşekkür ederiz.</div>
+      <div>© ${new Date().getFullYear()} ${tenantName} - Tüm hakları saklıdır.</div>
     </div>
   `;
 };
