@@ -304,7 +304,7 @@ const Dashboard: React.FC = () => {
   });
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 w-full max-w-full">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <h1 className="text-2xl font-bold tracking-tight">Kontrol Paneli</h1>
         <DateRangePicker
@@ -318,7 +318,7 @@ const Dashboard: React.FC = () => {
           <AnimatedCarLoader size={180} />
         </div>
       ) : (
-        <Tabs defaultValue="overview" className="space-y-4">
+        <Tabs defaultValue="overview" className="space-y-4 w-full">
           <TabsList>
             <TabsTrigger value="overview">Genel Bakış</TabsTrigger>
             <TabsTrigger value="analytics">Analitik</TabsTrigger>
@@ -372,31 +372,35 @@ const Dashboard: React.FC = () => {
                 prefix="₺"
               />
             </div>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-              <Card className="col-span-4">
-                <CardHeader>
-                  <CardTitle>Aylık Gelir</CardTitle>
-                  <CardDescription>Aylara göre servis gelirleri</CardDescription>
-                </CardHeader>
-                <CardContent className="pl-2">
-                  {revenueLoading ? (
-                    <div className="flex justify-center items-center h-40">
-                      <AnimatedCarLoader size={120} />
-                    </div>
-                  ) : (
-                    <RevenueChart data={monthlyRevenueData || []} />
-                  )}
-                </CardContent>
-              </Card>
-              <Card className="col-span-3">
-                <CardHeader>
-                  <CardTitle>Günlük Plan</CardTitle>
-                  <CardDescription>Bugün planlanmış servisler</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <DailySchedules />
-                </CardContent>
-              </Card>
+            <div className="grid gap-4 grid-cols-1 lg:grid-cols-7 w-full">
+              <div className="col-span-1 lg:col-span-4 w-full min-w-0">
+                <Card className="h-full">
+                  <CardHeader>
+                    <CardTitle>Aylık Gelir</CardTitle>
+                    <CardDescription>Aylara göre servis gelirleri</CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    {revenueLoading ? (
+                      <div className="flex justify-center items-center h-[280px]">
+                        <AnimatedCarLoader size={120} />
+                      </div>
+                    ) : (
+                      <RevenueChart data={monthlyRevenueData || []} />
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+              <div className="col-span-1 lg:col-span-3">
+                <Card className="h-full">
+                  <CardHeader>
+                    <CardTitle>Günlük Plan</CardTitle>
+                    <CardDescription>Bugün planlanmış servisler</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <DailySchedules />
+                  </CardContent>
+                </Card>
+              </div>
             </div>
             <RecentServices />
           </TabsContent>

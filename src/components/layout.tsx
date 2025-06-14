@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -63,15 +62,15 @@ const Layout = () => {
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
         <AppSidebar />
-        <SidebarInset className="flex flex-col">
+        <SidebarInset className="flex flex-col w-full min-w-0">
           <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 lg:px-6">
             <SidebarTrigger className="-ml-1" />
             <div className="ml-auto flex items-center gap-2">
               <ModeToggle />
             </div>
           </header>
-          <main className="flex-1 overflow-auto">
-            <div className="container mx-auto px-4 py-6 lg:px-8">
+          <main className="flex-1 overflow-auto w-full">
+            <div className="container mx-auto px-4 py-6 lg:px-8 max-w-full">
               <Outlet />
             </div>
           </main>
