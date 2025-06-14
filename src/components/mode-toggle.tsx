@@ -1,4 +1,5 @@
-import { useTheme } from "next-themes";
+
+import { useTheme } from "./theme-provider";
 import { Button } from "@/components/ui/button";
 import { Sun, Moon } from "lucide-react";
 import {
@@ -36,4 +37,4 @@ export function ModeToggle() {
       </DropdownMenuContent>
     </DropdownMenu>
   );
-} 
+}
