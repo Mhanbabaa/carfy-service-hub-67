@@ -26,7 +26,7 @@ import NotFound from "@/pages/NotFound";
 import Unauthorized from "@/pages/Unauthorized";
 
 // Import components
-import ProtectedRoute from "@/components/ProtectedRoute";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import AdminRoute from "@/components/AdminRoute";
 import GlassmorphismLayout from "@/components/glassmorphism-layout";
 
@@ -50,27 +50,25 @@ const App = () => {
                 <Route path="/unauthorized" element={<Unauthorized />} />
 
                 {/* Protected routes with glassmorphism layout */}
-                <Route path="/" element={
-                  <ProtectedRoute>
-                    <GlassmorphismLayout />
-                  </ProtectedRoute>
-                }>
-                  <Route path="dashboard" element={<Dashboard />} />
-                  <Route path="vehicles" element={<Vehicles />} />
-                  <Route path="customers" element={<Customers />} />
-                  <Route path="services" element={<Services />} />
-                  <Route path="services/:id" element={<ServiceDetail />} />
-                  <Route path="parts" element={<Parts />} />
-                  <Route path="personnel" element={<Personnel />} />
-                  <Route path="brands" element={<Brands />} />
-                  <Route path="debug" element={<Debug />} />
-                  
-                  {/* Admin routes */}
-                  <Route path="admin" element={
-                    <AdminRoute>
-                      <AdminPanel />
-                    </AdminRoute>
-                  } />
+                <Route path="/" element={<ProtectedRoute />}>
+                  <Route path="/" element={<GlassmorphismLayout />}>
+                    <Route path="dashboard" element={<Dashboard />} />
+                    <Route path="vehicles" element={<Vehicles />} />
+                    <Route path="customers" element={<Customers />} />
+                    <Route path="services" element={<Services />} />
+                    <Route path="services/:id" element={<ServiceDetail />} />
+                    <Route path="parts" element={<Parts />} />
+                    <Route path="personnel" element={<Personnel />} />
+                    <Route path="brands" element={<Brands />} />
+                    <Route path="debug" element={<Debug />} />
+                    
+                    {/* Admin routes */}
+                    <Route path="admin" element={
+                      <AdminRoute>
+                        <AdminPanel />
+                      </AdminRoute>
+                    } />
+                  </Route>
                 </Route>
 
                 {/* 404 page */}
