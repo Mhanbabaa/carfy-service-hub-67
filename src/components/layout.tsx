@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Link, Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -255,10 +254,6 @@ const Layout = () => {
                 <Lock className="mr-2 h-4 w-4" />
                 <span>Şifre Değiştir</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate('/settings')}>
-                <Settings className="mr-2 h-4 w-4" />
-                <span>Ayarlar</span>
-              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut} className="text-red-600">
                 <LogOut className="mr-2 h-4 w-4" />
@@ -391,10 +386,6 @@ const Layout = () => {
                       <DropdownMenuItem onClick={() => { navigate('/change-password'); setMobileMenuOpen(false); }}>
                         <Lock className="mr-2 h-4 w-4" />
                         <span>Şifre Değiştir</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => { navigate('/settings'); setMobileMenuOpen(false); }}>
-                        <Settings className="mr-2 h-4 w-4" />
-                        <span>Ayarlar</span>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={handleSignOut} className="text-red-600">

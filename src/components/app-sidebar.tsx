@@ -1,4 +1,3 @@
-
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
@@ -217,10 +216,6 @@ export function AppSidebar() {
             <DropdownMenuItem onClick={() => navigate('/change-password')}>
               <Lock className="mr-2 h-4 w-4" />
               <span>Şifre Değiştir</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate('/settings')}>
-              <Settings className="mr-2 h-4 w-4" />
-              <span>Ayarlar</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleSignOut} className="text-red-600">

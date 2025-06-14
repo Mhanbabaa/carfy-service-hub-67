@@ -19,6 +19,7 @@ import Personnel from './pages/Personnel';
 import Brands from './pages/Brands';
 import AdminPanel from './pages/AdminPanel';
 import ChangePassword from './pages/ChangePassword';
+import Profile from './pages/Profile';
 import Unauthorized from './pages/Unauthorized';
 import NotFound from './pages/NotFound';
 import LandingPage from './pages/LandingPage';
@@ -75,6 +76,7 @@ function App() {
                   <Route path="/parts" element={<Parts />} />
                   <Route path="/personnel" element={<Personnel />} />
                   <Route path="/brands" element={<Brands />} />
+                  <Route path="/profile" element={<Profile />} />
                   <Route path="/debug" element={<Debug />} />
                 </Route>
               </Route>
