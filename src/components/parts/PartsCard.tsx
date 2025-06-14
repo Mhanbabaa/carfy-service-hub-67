@@ -44,10 +44,13 @@ export const PartsCard = ({ part, onView, onEdit, onDelete }: PartsCardProps) =>
             </div>
           </div>
           <div className="mt-3">
-            <a href={`/services/${part.serviceId}`} className="text-blue-500 hover:underline flex items-center">
+            <button 
+              onClick={onView}
+              className="text-blue-500 hover:underline flex items-center cursor-pointer"
+            >
               <Link className="h-4 w-4 mr-1" />
               {part.serviceReference}
-            </a>
+            </button>
           </div>
         </div>
         <div className="flex border-t">

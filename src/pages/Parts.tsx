@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { 
@@ -40,6 +41,7 @@ const Parts = () => {
   const isMobile = useIsMobile();
   const { toast } = useToast();
   const { userProfile } = useAuth();
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPart, setSelectedPart] = useState<Part | null>(null);
@@ -94,8 +96,8 @@ const Parts = () => {
     (part.servicePlateNumber && part.servicePlateNumber.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  const handleView = (partId: string) => {
-    console.log("View part:", partId);
+  const handleView = (part: Part) => {
+    navigate(`/services/${part.serviceId}`);
   };
 
   const handleEdit = (part: Part) => {
@@ -267,7 +269,7 @@ const Parts = () => {
             <PartsCard
               key={part.id}
               part={part}
-              onView={() => handleView(part.id)}
+              onView={() => handleView(part)}
               onEdit={() => handleEdit(part)}
               onDelete={() => handleDelete(part.id)}
             />
@@ -314,7 +316,7 @@ const Parts = () => {
                       <Button 
                         variant="ghost" 
                         size="icon"
-                        onClick={() => handleView(part.id)}
+                        onClick={() => handleView(part)}
                       >
                         <Eye className="h-4 w-4" />
                         <span className="sr-only">Görüntüle</span>
