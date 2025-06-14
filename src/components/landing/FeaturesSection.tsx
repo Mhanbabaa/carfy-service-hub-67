@@ -1,5 +1,4 @@
 
-
 export const FeaturesSection = () => {
   return (
     <section id="features" className="py-20 bg-muted/50">
@@ -14,8 +13,8 @@ export const FeaturesSection = () => {
           </div>
           <div className="rounded-xl overflow-hidden shadow-lg border">
             <img
-              src="/lovable-uploads/60675309-8e5e-4ac3-9e41-43248daa6415.png"
-              alt="Servis Yönetim Dashboard - Araç ve Gelir Takibi"
+              src="/lovable-uploads/83c3ef35-2dc7-4a38-ac01-56480c38e741.png"
+              alt="Servis Yönetim Dashboard - Mobil Analitik Takibi"
               className="w-full h-auto"
             />
           </div>
@@ -58,4 +57,3 @@ export const FeaturesSection = () => {
     </section>
   );
 };
-
