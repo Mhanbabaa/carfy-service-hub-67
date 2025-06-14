@@ -1,572 +1,285 @@
 
-import { useState, useEffect } from "react";
-import { 
-  Car, 
-  Search, 
-  FilterX, 
-  Filter, 
-  ChevronDown, 
-  Eye, 
-  Plus,
-  ChevronLeft,
-  ChevronRight,
-  Loader2,
-  User
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
-import { cn } from "@/lib/utils";
-import { useSupabaseQuery, useSupabaseUpdate } from "@/hooks/use-supabase-query";
-import { format } from 'date-fns';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle,
-  DialogFooter 
-} from "@/components/ui/dialog";
-import { VehicleEditModal } from "@/components/vehicles/VehicleEditModal";
-import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
+import React, { useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Plus, Search, Car, Calendar, Phone, Mail, Wrench } from 'lucide-react';
+import { useSupabaseQuery } from '@/hooks/use-supabase-query';
+import { VehicleEditModal } from '@/components/vehicles/VehicleEditModal';
+import { LoadingOverlay } from '@/components/loading-overlay';
 
-// Status badge component
-const StatusBadge = ({ status }: { status: string }) => {
-  const statusConfig = {
-    active: {
-      label: "Aktif",
-      className: "bg-status-active text-white",
-    },
-    inService: {
-      label: "Serviste",
-      className: "bg-primary text-white",
-    },
-    waiting: {
-      label: "Beklemede",
-      className: "bg-status-pending text-white",
-    },
+const Vehicles = () => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedVehicle, setSelectedVehicle] = useState(null);
+
+  const { data: vehicles, isLoading, refetch } = useSupabaseQuery('vehicle_details', {
+    select: '*',
+    orderBy: 'created_at',
+    orderDirection: 'desc'
+  });
+
+  const filteredVehicles = vehicles?.filter(vehicle =>
+    vehicle.plate_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    vehicle.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    vehicle.brand_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    vehicle.model_name?.toLowerCase().includes(searchTerm.toLowerCase())
+  ) || [];
+
+  const handleAddVehicle = () => {
+    setSelectedVehicle(null);
+    setIsModalOpen(true);
   };
 
-  const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.active;
-
-  return (
-    <Badge className={config.className}>
-      {config.label}
-    </Badge>
-  );
-};
-
-export default function Vehicles() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(5);
-  const [showFilters, setShowFilters] = useState(false);
-  const [activeFilters, setActiveFilters] = useState<{ [key: string]: string }>({});
-  const [selectedVehicle, setSelectedVehicle] = useState<any>(null);
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const [editModalOpen, setEditModalOpen] = useState(false);
-  const [vehicleToEdit, setVehicleToEdit] = useState<any>(null);
-  
-  const { toast } = useToast();
-  const { userProfile } = useAuth();
-
-  // Fetch vehicles from Supabase
-  const { data: vehiclesData, isLoading, isError, refetch } = useSupabaseQuery(
-    'vehicle_details', // Using a view that joins vehicles with customers and other related data
-    {
-      pageSize: itemsPerPage,
-      page: currentPage,
-      orderBy: 'created_at',
-      orderDirection: 'desc',
-    }
-  );
-
-  // Fetch car brands for filter
-  const { data: brandsData, isLoading: isLoadingBrands } = useSupabaseQuery(
-    'car_brands',
-    {
-      orderBy: 'name',
-      orderDirection: 'asc',
-      pageSize: 100,
-      queryKey: ['car_brands']
-    }
-  );
-  
-  const brands = brandsData?.data || [];
-
-  // Update vehicle mutation
-  const updateVehicle = useSupabaseUpdate('vehicles');
-
-  // Filter vehicles based on search query
-  const filteredVehicles = vehiclesData?.data
-    ? vehiclesData.data.filter((vehicle: any) => {
-        if (!searchQuery) return true;
-        
-        const searchString = searchQuery.toLowerCase();
-        return (
-          vehicle.plate_number?.toLowerCase().includes(searchString) ||
-          vehicle.brand_name?.toLowerCase().includes(searchString) ||
-          vehicle.model_name?.toLowerCase().includes(searchString) ||
-          vehicle.customer_name?.toLowerCase().includes(searchString)
-        );
-      })
-    : [];
-
-  // Calculate pagination
-  const totalItems = vehiclesData?.count || 0;
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
-
-  // Handle page change
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-  };
-
-  // Toggle filters
-  const toggleFilters = () => {
-    setShowFilters(!showFilters);
-  };
-
-  const applyFilter = (key: string, value: string) => {
-    setActiveFilters({ ...activeFilters, [key]: value });
-  };
-
-  const removeFilter = (key: string) => {
-    const newFilters = { ...activeFilters };
-    delete newFilters[key];
-    setActiveFilters(newFilters);
-  };
-
-  const clearFilters = () => {
-    setActiveFilters({});
-  };
-
-  const openDetails = (vehicle: any) => {
+  const handleEditVehicle = (vehicle: any) => {
     setSelectedVehicle(vehicle);
-    setDetailsOpen(true);
+    setIsModalOpen(true);
   };
 
-  const handleEdit = (vehicle: any) => {
-    setVehicleToEdit(vehicle);
-    setEditModalOpen(true);
-  };
-
-  const handleEditFromDetails = () => {
-    if (selectedVehicle) {
-      setVehicleToEdit(selectedVehicle);
-      setDetailsOpen(false);
-      setEditModalOpen(true);
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'in_service':
+        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400';
+      case 'completed':
+        return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
+      case 'waiting':
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
+      default:
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
     }
   };
 
-  const handleSaveVehicle = async (vehicleData: any) => {
-    try {
-      await updateVehicle.mutateAsync({
-        id: vehicleData.id,
-        data: {
-          plate_number: vehicleData.plate_number,
-          chassis_number: vehicleData.chassis_number,
-          brand_id: vehicleData.brand_id,
-          model_id: vehicleData.model_id,
-          year: vehicleData.year,
-          mileage: vehicleData.mileage,
-          under_warranty: vehicleData.under_warranty,
-          updated_at: new Date().toISOString(),
-        }
-      });
-
-      toast({
-        title: "Araç güncellendi",
-        description: "Araç bilgileri başarıyla güncellendi.",
-        variant: "default",
-      });
-
-      setEditModalOpen(false);
-      setVehicleToEdit(null);
-      refetch();
-    } catch (error: any) {
-      toast({
-        title: "Hata",
-        description: error.message || "Araç güncellenirken bir hata oluştu.",
-        variant: "destructive",
-      });
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'in_service':
+        return 'Serviste';
+      case 'completed':
+        return 'Tamamlandı';
+      case 'waiting':
+        return 'Bekliyor';
+      default:
+        return 'Aktif';
     }
   };
+
+  if (isLoading) {
+    return <LoadingOverlay message="Araçlar yükleniyor..." />;
+  }
 
   return (
-    <div className="container mx-auto py-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
-        <div className="flex items-center">
-          <Car className="h-6 w-6 mr-2" />
-          <h1 className="text-2xl font-bold">Araçlar</h1>
+    <div className="min-h-screen bg-background">
+      <div className="space-y-4 sm:space-y-6">
+        {/* Header - Mobile responsive */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight">
+              Araçlar
+            </h1>
+            <p className="text-sm sm:text-base text-muted-foreground">
+              Kayıtlı araçları görüntüleyin ve yönetin
+            </p>
+          </div>
+          <Button 
+            onClick={handleAddVehicle} 
+            className="w-full sm:w-auto"
+            size="default"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Yeni Araç
+          </Button>
         </div>
-        <Button className="mt-4 sm:mt-0">
-          <Plus className="mr-2 h-4 w-4" /> Yeni Araç Ekle
-        </Button>
-      </div>
 
-      <div className="bg-card shadow-sm rounded-lg overflow-hidden">
-        <div className="p-4 border-b flex flex-col sm:flex-row justify-between gap-4">
-          <div className="relative w-full sm:w-96">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+        {/* Search - Mobile responsive */}
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
-              type="search"
-              placeholder="Araç, müşteri veya plaka ara..."
-              className="w-full pl-8"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Plaka, müşteri adı, marka veya model ara..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
             />
           </div>
-          <div className="flex gap-2">
-            {Object.keys(activeFilters).length > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-10 px-3"
-                onClick={clearFilters}
-              >
-                <FilterX className="mr-2 h-4 w-4" />
-                Filtreleri Temizle
-              </Button>
-            )}
-            <Button
-              variant={showFilters ? "default" : "outline"}
-              size="sm"
-              className="h-10 px-3"
-              onClick={toggleFilters}
-            >
-              <Filter className="mr-2 h-4 w-4" />
-              Filtrele
-              <ChevronDown className="ml-2 h-4 w-4" />
-            </Button>
-          </div>
         </div>
 
-        {showFilters && (
-          <div className="bg-muted/40 p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-            {/* Status filter */}
-            <div>
-              <label className="text-sm font-medium mb-1 block">
-                Durum
-              </label>
-              <select
-                className="w-full rounded-md border border-input px-3 py-2 bg-background"
-                value={activeFilters.status || ""}
-                onChange={(e) => applyFilter("status", e.target.value)}
-              >
-                <option value="">Tüm Durumlar</option>
-                <option value="active">Aktif</option>
-                <option value="inService">Serviste</option>
-                <option value="waiting">Beklemede</option>
-              </select>
-            </div>
+        {/* Stats Cards - Mobile responsive */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <Card>
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                  <Car className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <p className="text-xl sm:text-2xl font-bold">{vehicles?.length || 0}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Toplam Araç</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-yellow-100 dark:bg-yellow-900/20 rounded-lg">
+                  <Wrench className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-600 dark:text-yellow-400" />
+                </div>
+                <div>
+                  <p className="text-xl sm:text-2xl font-bold">
+                    {vehicles?.filter(v => v.status === 'in_service').length || 0}
+                  </p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Serviste</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-            {/* Brand filter */}
-            <div>
-              <label className="text-sm font-medium mb-1 block">
-                Marka
-              </label>
-              <select
-                className="w-full rounded-md border border-input px-3 py-2 bg-background"
-                value={activeFilters.brand || ""}
-                onChange={(e) => applyFilter("brand", e.target.value)}
-              >
-                <option value="">Tüm Markalar</option>
-                {isLoadingBrands ? (
-                  <option value="" disabled>Yükleniyor...</option>
-                ) : (
-                  brands.map((brand: any) => (
-                    <option key={brand.id} value={brand.id}>
-                      {brand.name}
-                    </option>
-                  ))
+          <Card>
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                  <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-green-600 dark:text-green-400" />
+                </div>
+                <div>
+                  <p className="text-xl sm:text-2xl font-bold">
+                    {vehicles?.filter(v => v.last_service_date && 
+                      new Date(v.last_service_date) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+                    ).length || 0}
+                  </p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Bu Ay Servis</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-purple-100 dark:bg-purple-900/20 rounded-lg">
+                  <Car className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600 dark:text-purple-400" />
+                </div>
+                <div>
+                  <p className="text-xl sm:text-2xl font-bold">
+                    {vehicles?.filter(v => v.under_warranty).length || 0}
+                  </p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Garantili</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Vehicles Grid - Mobile responsive */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+          {filteredVehicles.map((vehicle) => (
+            <Card key={vehicle.id} className="hover:shadow-lg transition-shadow cursor-pointer">
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <CardTitle className="text-lg sm:text-xl font-bold">
+                      {vehicle.plate_number}
+                    </CardTitle>
+                    <CardDescription className="text-sm">
+                      {vehicle.brand_name} {vehicle.model_name} ({vehicle.year})
+                    </CardDescription>
+                  </div>
+                  <Badge className={`text-xs ${getStatusColor(vehicle.status)}`}>
+                    {getStatusText(vehicle.status)}
+                  </Badge>
+                </div>
+              </CardHeader>
+              
+              <CardContent className="space-y-3 sm:space-y-4">
+                {/* Customer Info */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <div className="p-1 bg-blue-100 dark:bg-blue-900/20 rounded">
+                      <Car className="h-3 w-3 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <span className="font-medium">{vehicle.customer_name}</span>
+                  </div>
+                  
+                  {vehicle.customer_phone && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Phone className="h-3 w-3 ml-6" />
+                      <span>{vehicle.customer_phone}</span>
+                    </div>
+                  )}
+                  
+                  {vehicle.customer_email && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Mail className="h-3 w-3 ml-6" />
+                      <span className="truncate">{vehicle.customer_email}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Vehicle Details */}
+                <div className="grid grid-cols-2 gap-3 pt-2 border-t">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Kilometre</p>
+                    <p className="text-sm font-medium">{vehicle.mileage?.toLocaleString('tr-TR')} km</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Servis Sayısı</p>
+                    <p className="text-sm font-medium">{vehicle.service_count || 0}</p>
+                  </div>
+                </div>
+
+                {vehicle.last_service_date && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Son Servis</p>
+                    <p className="text-sm font-medium">
+                      {new Date(vehicle.last_service_date).toLocaleDateString('tr-TR')}
+                    </p>
+                  </div>
                 )}
-              </select>
-            </div>
 
-            {/* Year filter */}
-            <div>
-              <label className="text-sm font-medium mb-1 block">
-                Yıl
-              </label>
-              <select
-                className="w-full rounded-md border border-input px-3 py-2 bg-background"
-                value={activeFilters.year || ""}
-                onChange={(e) => applyFilter("year", e.target.value)}
-              >
-                <option value="">Tüm Yıllar</option>
-                {Array.from({ length: 10 }, (_, i) => {
-                  const year = new Date().getFullYear() - i;
-                  return (
-                    <option key={year} value={year.toString()}>
-                      {year}
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
-
-            {/* Last service filter */}
-            <div>
-              <label className="text-sm font-medium mb-1 block">
-                Son Servis
-              </label>
-              <select
-                className="w-full rounded-md border border-input px-3 py-2 bg-background"
-                value={activeFilters.lastService || ""}
-                onChange={(e) => applyFilter("lastService", e.target.value)}
-              >
-                <option value="">Tüm Zamanlar</option>
-                <option value="lastMonth">Son 1 Ay</option>
-                <option value="last3Months">Son 3 Ay</option>
-                <option value="last6Months">Son 6 Ay</option>
-                <option value="lastYear">Son 1 Yıl</option>
-              </select>
-            </div>
-          </div>
-        )}
-
-        {isLoading ? (
-          <div className="flex justify-center items-center p-8">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <span className="ml-2">Veri yükleniyor...</span>
-          </div>
-        ) : isError ? (
-          <div className="p-8 text-center text-destructive">
-            Araç verileri yüklenirken bir hata oluştu. Lütfen daha sonra tekrar deneyin.
-          </div>
-        ) : filteredVehicles.length === 0 ? (
-          <div className="p-8 text-center text-muted-foreground">
-            Araç bulunamadı. Lütfen filtrelerinizi değiştirin veya yeni bir araç ekleyin.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Plaka</TableHead>
-                  <TableHead>Marka/Model</TableHead>
-                  <TableHead>Yıl</TableHead>
-                  <TableHead>Müşteri</TableHead>
-                  <TableHead>Son Servis</TableHead>
-                  <TableHead>Durum</TableHead>
-                  <TableHead className="text-right">İşlemler</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredVehicles.map((vehicle: any) => (
-                  <TableRow key={vehicle.id}>
-                    <TableCell className="font-medium">{vehicle.plate_number}</TableCell>
-                    <TableCell>
-                      {vehicle.brand_name} {vehicle.model_name}
-                    </TableCell>
-                    <TableCell>{vehicle.year}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center">
-                        <User className="h-4 w-4 mr-2 text-muted-foreground" />
-                        {vehicle.customer_name}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {vehicle.last_service_date 
-                        ? format(new Date(vehicle.last_service_date), 'dd MMM yyyy')
-                        : 'Yok'}
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge status={vehicle.status || 'active'} />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          onClick={() => openDetails(vehicle)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          onClick={() => handleEdit(vehicle)}
-                        >
-                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-
-        <div className="p-4 border-t">
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    if (currentPage > 1) handlePageChange(currentPage - 1);
-                  }}
-                  className={cn(currentPage === 1 && "pointer-events-none opacity-50")}
-                />
-              </PaginationItem>
-              
-              {Array.from({ length: totalPages }).map((_, i) => (
-                <PaginationItem key={i}>
-                  <PaginationLink
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handlePageChange(i + 1);
-                    }}
-                    isActive={currentPage === i + 1}
+                {/* Actions */}
+                <div className="pt-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => handleEditVehicle(vehicle)}
+                    className="w-full"
                   >
-                    {i + 1}
-                  </PaginationLink>
-                </PaginationItem>
-              ))}
-              
-              <PaginationItem>
-                <PaginationNext
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    if (currentPage < totalPages) handlePageChange(currentPage + 1);
-                  }}
-                  className={cn(currentPage === totalPages && "pointer-events-none opacity-50")}
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
+                    Detayları Görüntüle
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
+
+        {filteredVehicles.length === 0 && (
+          <Card>
+            <CardContent className="p-8 sm:p-12 text-center">
+              <Car className="h-12 w-12 sm:h-16 sm:w-16 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg sm:text-xl font-semibold mb-2">Araç bulunamadı</h3>
+              <p className="text-sm sm:text-base text-muted-foreground mb-4">
+                {searchTerm ? 'Arama kriterlerinize uygun araç bulunamadı.' : 'Henüz kayıtlı araç bulunmuyor.'}
+              </p>
+              <Button onClick={handleAddVehicle} className="w-full sm:w-auto">
+                <Plus className="h-4 w-4 mr-2" />
+                İlk Aracı Ekle
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
-      {/* Vehicle Details Dialog */}
-      {selectedVehicle && (
-        <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
-          <DialogContent className="sm:max-w-[600px]">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-semibold flex items-center">
-                <Car className="h-5 w-5 mr-2 text-primary" />
-                {selectedVehicle.plate_number}
-              </DialogTitle>
-            </DialogHeader>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
-              {/* Vehicle Info */}
-              <div className="space-y-4">
-                <h3 className="font-medium text-lg">Araç Bilgileri</h3>
-                
-                <div className="space-y-2">
-                  <div className="grid grid-cols-3">
-                    <span className="font-medium text-muted-foreground">Marka:</span>
-                    <span className="col-span-2">{selectedVehicle.brand_name}</span>
-                  </div>
-                  
-                  <div className="grid grid-cols-3">
-                    <span className="font-medium text-muted-foreground">Model:</span>
-                    <span className="col-span-2">{selectedVehicle.model_name}</span>
-                  </div>
-                  
-                  <div className="grid grid-cols-3">
-                    <span className="font-medium text-muted-foreground">Yıl:</span>
-                    <span className="col-span-2">{selectedVehicle.year}</span>
-                  </div>
-                  
-                  <div className="grid grid-cols-3">
-                    <span className="font-medium text-muted-foreground">Şase No:</span>
-                    <span className="col-span-2">{selectedVehicle.chassis_number || 'Belirtilmemiş'}</span>
-                  </div>
-                  
-                  <div className="grid grid-cols-3">
-                    <span className="font-medium text-muted-foreground">Kilometre:</span>
-                    <span className="col-span-2">{selectedVehicle.mileage || 'Belirtilmemiş'}</span>
-                  </div>
-                  
-                  <div className="grid grid-cols-3">
-                    <span className="font-medium text-muted-foreground">Garanti:</span>
-                    <span className="col-span-2">{selectedVehicle.under_warranty ? 'Evet' : 'Hayır'}</span>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Customer Info */}
-              <div className="space-y-4">
-                <h3 className="font-medium text-lg">Müşteri Bilgileri</h3>
-                
-                <div className="space-y-2">
-                  <div className="grid grid-cols-3">
-                    <span className="font-medium text-muted-foreground">İsim:</span>
-                    <span className="col-span-2">{selectedVehicle.customer_name}</span>
-                  </div>
-                  
-                  <div className="grid grid-cols-3">
-                    <span className="font-medium text-muted-foreground">Telefon:</span>
-                    <span className="col-span-2">{selectedVehicle.customer_phone || 'Belirtilmemiş'}</span>
-                  </div>
-                  
-                  <div className="grid grid-cols-3">
-                    <span className="font-medium text-muted-foreground">E-posta:</span>
-                    <span className="col-span-2">{selectedVehicle.customer_email || 'Belirtilmemiş'}</span>
-                  </div>
-                </div>
-                
-                <h3 className="font-medium text-lg mt-6">Servis Geçmişi</h3>
-                {selectedVehicle.service_count > 0 ? (
-                  <div>
-                    <p>Toplam {selectedVehicle.service_count} servis kaydı</p>
-                    <p>Son servis: {selectedVehicle.last_service_date 
-                      ? format(new Date(selectedVehicle.last_service_date), 'dd MMM yyyy')
-                      : 'Yok'}</p>
-                  </div>
-                ) : (
-                  <p className="text-muted-foreground">Servis kaydı bulunmamaktadır.</p>
-                )}
-              </div>
-            </div>
-            
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setDetailsOpen(false)}>
-                Kapat
-              </Button>
-              <Button variant="default" onClick={handleEditFromDetails}>
-                <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-                Düzenle
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {/* Vehicle Edit Modal */}
       <VehicleEditModal
-        open={editModalOpen}
-        onOpenChange={setEditModalOpen}
-        vehicle={vehicleToEdit}
-        onSave={handleSaveVehicle}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        vehicle={selectedVehicle}
+        onSave={() => {
+          refetch();
+          setIsModalOpen(false);
+        }}
       />
     </div>
   );
-}
+};
+
+export default Vehicles;
