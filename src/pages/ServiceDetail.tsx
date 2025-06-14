@@ -106,6 +106,29 @@ const ServiceDetail = () => {
     },
     enabled: !!id && !!userProfile?.tenant_id,
   });
+
+  // Fetch real service history from database
+  const { data: serviceHistory } = useQuery({
+    queryKey: ['service-history', id, userProfile?.tenant_id],
+    queryFn: async () => {
+      if (!id || !userProfile?.tenant_id) return [];
+      
+      const { data, error } = await supabase
+        .from('service_history_with_user')
+        .select('*')
+        .eq('service_id', id)
+        .eq('tenant_id', userProfile.tenant_id)
+        .order('created_at', { ascending: true });
+        
+      if (error) {
+        console.error('Error fetching service history:', error);
+        return [];
+      }
+      
+      return data || [];
+    },
+    enabled: !!id && !!userProfile?.tenant_id,
+  });
   
   if (isLoading) {
     return (
@@ -434,27 +457,31 @@ const ServiceDetail = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {service.history.map((historyItem) => (
-              <div key={historyItem.id} className="flex">
-                <div className="mr-4 flex flex-col items-center">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                    <CalendarDays className="h-5 w-5 text-primary" />
+            {serviceHistory && serviceHistory.length > 0 ? (
+              serviceHistory.map((historyItem: any) => (
+                <div key={historyItem.id} className="flex">
+                  <div className="mr-4 flex flex-col items-center">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                      <CalendarDays className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="h-full w-px bg-border" />
                   </div>
-                  <div className="h-full w-px bg-border" />
-                </div>
-                <div className="space-y-1 pt-1">
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium">{historyItem.action}</p>
-                    <span className="text-xs text-muted-foreground">
-                      {format(historyItem.date, "d MMMM yyyy, HH:mm", { locale: tr })}
-                    </span>
+                  <div className="space-y-1 pt-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">{historyItem.action}</p>
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(historyItem.created_at), "d MMMM yyyy, HH:mm", { locale: tr })}
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      <span className="font-medium text-foreground">{historyItem.user_name}</span> {historyItem.description}
+                    </p>
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    <span className="font-medium text-foreground">{historyItem.user}</span> {historyItem.description}
-                  </p>
                 </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="text-center text-muted-foreground py-4">İşlem geçmişi bulunmuyor.</p>
+            )}
           </div>
         </CardContent>
       </Card>
