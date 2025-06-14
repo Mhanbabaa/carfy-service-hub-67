@@ -1,4 +1,3 @@
-
 export const FeaturesSection = () => {
   return (
     <section id="features" className="py-20 bg-muted/50">
@@ -13,10 +12,10 @@ export const FeaturesSection = () => {
               Araç kabulünden teslime kadar tüm servis süreçlerinizi dijital ortamda takip edin. Müşteri bilgileri, araç detayları, servis geçmişi ve daha fazlası tek bir platformda.
             </p>
           </div>
-          {/* Right: New First Image */}
+          {/* Right: New First Image (changed) */}
           <div className="rounded-xl overflow-hidden shadow-lg border">
             <img
-              src="/lovable-uploads/d5c75461-62f4-4852-930f-056b308d258c.png"
+              src="/lovable-uploads/ea0d6a96-4fc1-461e-ab51-dd602ed578e4.png"
               alt="Tüm Servis Süreçleri Tek Platformda"
               className="w-full h-auto"
             />
@@ -53,7 +52,7 @@ export const FeaturesSection = () => {
               Servis işlemlerini detaylı olarak kaydedin, parça kullanımını takip edin. Teknisyen atamaları, durum güncellemeleri ve fiyatlandırma tek bir ekranda.
             </p>
           </div>
-          {/* Right: Mobile Analytics image (was first section image before) */}
+          {/* Right: Mobile Analytics image */}
           <div className="rounded-xl overflow-hidden shadow-lg border">
             <img
               src="/lovable-uploads/798dc57e-8d0e-482a-bb63-7a932a2e2fbc.png"
