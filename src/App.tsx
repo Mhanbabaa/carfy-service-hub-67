@@ -26,9 +26,8 @@ import NotFound from "@/pages/NotFound";
 import Unauthorized from "@/pages/Unauthorized";
 
 // Import components
-import ProtectedRoute from "@/components/ProtectedRoute";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import AdminRoute from "@/components/AdminRoute";
-import GlassmorphismLayout from "@/components/glassmorphism-layout";
 
 const queryClient = new QueryClient();
 
@@ -49,29 +48,61 @@ const App = () => {
                 <Route path="/change-password" element={<ChangePassword />} />
                 <Route path="/unauthorized" element={<Unauthorized />} />
 
-                {/* Protected routes with glassmorphism layout */}
-                <Route path="/" element={
+                {/* Protected routes */}
+                <Route path="/dashboard" element={
                   <ProtectedRoute>
-                    <GlassmorphismLayout />
+                    <Dashboard />
                   </ProtectedRoute>
-                }>
-                  <Route path="dashboard" element={<Dashboard />} />
-                  <Route path="vehicles" element={<Vehicles />} />
-                  <Route path="customers" element={<Customers />} />
-                  <Route path="services" element={<Services />} />
-                  <Route path="services/:id" element={<ServiceDetail />} />
-                  <Route path="parts" element={<Parts />} />
-                  <Route path="personnel" element={<Personnel />} />
-                  <Route path="brands" element={<Brands />} />
-                  <Route path="debug" element={<Debug />} />
-                  
-                  {/* Admin routes */}
-                  <Route path="admin" element={
+                } />
+                <Route path="/vehicles" element={
+                  <ProtectedRoute>
+                    <Vehicles />
+                  </ProtectedRoute>
+                } />
+                <Route path="/customers" element={
+                  <ProtectedRoute>
+                    <Customers />
+                  </ProtectedRoute>
+                } />
+                <Route path="/services" element={
+                  <ProtectedRoute>
+                    <Services />
+                  </ProtectedRoute>
+                } />
+                <Route path="/services/:id" element={
+                  <ProtectedRoute>
+                    <ServiceDetail />
+                  </ProtectedRoute>
+                } />
+                <Route path="/parts" element={
+                  <ProtectedRoute>
+                    <Parts />
+                  </ProtectedRoute>
+                } />
+                <Route path="/personnel" element={
+                  <ProtectedRoute>
+                    <Personnel />
+                  </ProtectedRoute>
+                } />
+                <Route path="/brands" element={
+                  <ProtectedRoute>
+                    <Brands />
+                  </ProtectedRoute>
+                } />
+                <Route path="/debug" element={
+                  <ProtectedRoute>
+                    <Debug />
+                  </ProtectedRoute>
+                } />
+                
+                {/* Admin routes */}
+                <Route path="/admin" element={
+                  <ProtectedRoute>
                     <AdminRoute>
                       <AdminPanel />
                     </AdminRoute>
-                  } />
-                </Route>
+                  </ProtectedRoute>
+                } />
 
                 {/* 404 page */}
                 <Route path="*" element={<NotFound />} />
