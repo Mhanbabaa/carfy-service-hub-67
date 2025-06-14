@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { 
   Car, 
@@ -6,7 +7,6 @@ import {
   Filter, 
   ChevronDown, 
   Eye, 
-  Edit, 
   Plus,
   ChevronLeft,
   ChevronRight,
@@ -33,7 +33,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
-import { useSupabaseQuery } from "@/hooks/use-supabase-query";
+import { useSupabaseQuery, useSupabaseUpdate } from "@/hooks/use-supabase-query";
 import { format } from 'date-fns';
 import { 
   Dialog, 
@@ -42,6 +42,9 @@ import {
   DialogTitle,
   DialogFooter 
 } from "@/components/ui/dialog";
+import { VehicleEditModal } from "@/components/vehicles/VehicleEditModal";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Status badge component
 const StatusBadge = ({ status }: { status: string }) => {
@@ -77,9 +80,14 @@ export default function Vehicles() {
   const [activeFilters, setActiveFilters] = useState<{ [key: string]: string }>({});
   const [selectedVehicle, setSelectedVehicle] = useState<any>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [vehicleToEdit, setVehicleToEdit] = useState<any>(null);
+  
+  const { toast } = useToast();
+  const { userProfile } = useAuth();
 
   // Fetch vehicles from Supabase
-  const { data: vehiclesData, isLoading, isError } = useSupabaseQuery(
+  const { data: vehiclesData, isLoading, isError, refetch } = useSupabaseQuery(
     'vehicle_details', // Using a view that joins vehicles with customers and other related data
     {
       pageSize: itemsPerPage,
@@ -101,6 +109,9 @@ export default function Vehicles() {
   );
   
   const brands = brandsData?.data || [];
+
+  // Update vehicle mutation
+  const updateVehicle = useSupabaseUpdate('vehicles');
 
   // Filter vehicles based on search query
   const filteredVehicles = vehiclesData?.data
@@ -148,6 +159,53 @@ export default function Vehicles() {
   const openDetails = (vehicle: any) => {
     setSelectedVehicle(vehicle);
     setDetailsOpen(true);
+  };
+
+  const handleEdit = (vehicle: any) => {
+    setVehicleToEdit(vehicle);
+    setEditModalOpen(true);
+  };
+
+  const handleEditFromDetails = () => {
+    if (selectedVehicle) {
+      setVehicleToEdit(selectedVehicle);
+      setDetailsOpen(false);
+      setEditModalOpen(true);
+    }
+  };
+
+  const handleSaveVehicle = async (vehicleData: any) => {
+    try {
+      await updateVehicle.mutateAsync({
+        id: vehicleData.id,
+        data: {
+          plate_number: vehicleData.plate_number,
+          chassis_number: vehicleData.chassis_number,
+          brand_id: vehicleData.brand_id,
+          model_id: vehicleData.model_id,
+          year: vehicleData.year,
+          mileage: vehicleData.mileage,
+          under_warranty: vehicleData.under_warranty,
+          updated_at: new Date().toISOString(),
+        }
+      });
+
+      toast({
+        title: "Araç güncellendi",
+        description: "Araç bilgileri başarıyla güncellendi.",
+        variant: "default",
+      });
+
+      setEditModalOpen(false);
+      setVehicleToEdit(null);
+      refetch();
+    } catch (error: any) {
+      toast({
+        title: "Hata",
+        description: error.message || "Araç güncellenirken bir hata oluştu.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -341,8 +399,14 @@ export default function Vehicles() {
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon">
-                          <Edit className="h-4 w-4" />
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          onClick={() => handleEdit(vehicle)}
+                        >
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
                         </Button>
                       </div>
                     </TableCell>
@@ -485,13 +549,24 @@ export default function Vehicles() {
               <Button variant="outline" onClick={() => setDetailsOpen(false)}>
                 Kapat
               </Button>
-              <Button variant="default">
-                <Edit className="h-4 w-4 mr-2" /> Düzenle
+              <Button variant="default" onClick={handleEditFromDetails}>
+                <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Düzenle
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Vehicle Edit Modal */}
+      <VehicleEditModal
+        open={editModalOpen}
+        onOpenChange={setEditModalOpen}
+        vehicle={vehicleToEdit}
+        onSave={handleSaveVehicle}
+      />
     </div>
   );
 }
