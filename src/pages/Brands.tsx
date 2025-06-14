@@ -1,292 +1,426 @@
 
-import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Search, CarFront, Factory, Package, Calendar } from 'lucide-react';
-import { useSupabaseQuery } from '@/hooks/use-supabase-query';
-import { LoadingOverlay } from '@/components/loading-overlay';
+import React, { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardFooter, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useSupabaseQuery } from "@/hooks/use-supabase-query";
+import { Search, Loader2, ArrowLeft, ChevronRight, Star, TrendingUp, Award } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { motion } from "framer-motion";
 
-const Brands = () => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState('brands');
+interface CarBrand {
+  id: string;
+  name: string;
+}
 
-  const { data: brands, isLoading: brandsLoading } = useSupabaseQuery('car_brands', {
-    select: '*',
-    orderBy: 'name',
-    orderDirection: 'asc'
+interface CarModel {
+  id: string;
+  brand_id: string;
+  name: string;
+}
+
+export default function BrandsPage() {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("brands");
+  const [selectedLetter, setSelectedLetter] = useState<string>("");
+
+  // Fetch all brands
+  const { data: brandsData, isLoading: isLoadingBrands } = useSupabaseQuery(
+    'car_brands',
+    {
+      orderBy: 'name',
+      orderDirection: 'asc',
+      pageSize: 100,
+      queryKey: ['car_brands']
+    }
+  );
+
+  // Fetch models for selected brand
+  const { data: modelsData, isLoading: isLoadingModels } = useSupabaseQuery(
+    'car_models',
+    {
+      filter: { brand_id: selectedBrandId },
+      orderBy: 'name',
+      orderDirection: 'asc',
+      pageSize: 500,
+      enabled: !!selectedBrandId,
+      queryKey: ['car_models', selectedBrandId]
+    }
+  );
+
+  const brands = (brandsData?.data || []) as CarBrand[];
+  const models = (modelsData?.data || []) as CarModel[];
+
+  // Popular brands (you can make this dynamic later)
+  const popularBrands = ['BMW', 'Mercedes', 'Audi', 'Volkswagen', 'Ford', 'Toyota'];
+
+  // Filter brands based on search term and selected letter
+  const filteredBrands = brands.filter((brand: CarBrand) => {
+    const matchesSearch = brand.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesLetter = selectedLetter === "" || brand.name.charAt(0).toUpperCase() === selectedLetter;
+    return matchesSearch && matchesLetter;
   });
 
-  const { data: models, isLoading: modelsLoading } = useSupabaseQuery('car_models', {
-    select: '*, car_brands(name)',
-    orderBy: 'name',
-    orderDirection: 'asc'
-  });
-
-  const { data: vehicles } = useSupabaseQuery('vehicles', {
-    select: 'brand_id, model_id'
-  });
-
-  const filteredBrands = brands?.filter(brand =>
-    brand.name?.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
-
-  const filteredModels = models?.filter(model =>
-    model.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    model.car_brands?.name?.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
-
-  const getVehicleCountByBrand = (brandId: string) => {
-    return vehicles?.filter(vehicle => vehicle.brand_id === brandId).length || 0;
+  // Handle brand selection and automatically switch to models tab
+  const handleSelectBrand = (brandId: string) => {
+    setSelectedBrandId(brandId);
+    setActiveTab("models");
   };
 
-  const getVehicleCountByModel = (modelId: string) => {
-    return vehicles?.filter(vehicle => vehicle.model_id === modelId).length || 0;
+  const getBrandName = () => {
+    if (!selectedBrandId) return "";
+    const brand = brands.find((b: CarBrand) => b.id === selectedBrandId);
+    return brand ? brand.name : "";
   };
 
-  const getModelCountByBrand = (brandId: string) => {
-    return models?.filter(model => model.brand_id === brandId).length || 0;
+  // When switching back to brands tab, clear selected brand
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    if (value === "brands") {
+      setSelectedBrandId(null);
+    }
   };
 
-  const isLoading = brandsLoading || modelsLoading;
+  // Get letter groups for brands
+  const getLetterGroups = () => {
+    const groups: { [key: string]: CarBrand[] } = {};
+    
+    filteredBrands.forEach((brand: CarBrand) => {
+      const firstLetter = brand.name.charAt(0).toUpperCase();
+      if (!groups[firstLetter]) {
+        groups[firstLetter] = [];
+      }
+      groups[firstLetter].push(brand);
+    });
+    
+    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
+  };
 
-  if (isLoading) {
-    return <LoadingOverlay message="Marka ve modeller yükleniyor..." />;
-  }
+  const letterGroups = getLetterGroups();
+
+  // Get all available letters for alphabet navigation
+  const availableLetters = Array.from(new Set(brands.map((brand: CarBrand) => 
+    brand.name.charAt(0).toUpperCase()
+  ))).sort();
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="space-y-4 sm:space-y-6">
-        {/* Header - Mobile responsive */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight">
-              Marka ve Modeller
-            </h1>
-            <p className="text-sm sm:text-base text-muted-foreground">
-              Araç markalarını ve modellerini görüntüleyin
-            </p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+      <div className="space-y-8 max-w-7xl mx-auto px-6 py-8">
+        {/* Hero Header */}
+        <div className="text-center space-y-4">
+          <motion.h1 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-4xl md:text-5xl font-poppins font-bold bg-gradient-to-r from-slate-800 to-slate-600 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent"
+          >
+            Premium Araç Koleksiyonu
+          </motion.h1>
+        </div>
+
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-8">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <TabsList className="grid w-full sm:w-auto grid-cols-2 h-12">
+              <TabsTrigger value="brands" className="text-sm font-medium px-6">
+                <Award className="mr-2 h-4 w-4" />
+                Markalar
+              </TabsTrigger>
+              <TabsTrigger value="models" className="text-sm font-medium px-6" disabled={!selectedBrandId}>
+                <TrendingUp className="mr-2 h-4 w-4" />
+                Modeller
+                {selectedBrandId && (
+                  <Badge variant="secondary" className="ml-2 text-xs">
+                    {getBrandName()}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
           </div>
-        </div>
 
-        {/* Search - Mobile responsive */}
-        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            <Input
-              placeholder="Marka veya model ara..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </div>
-
-        {/* Stats Cards - Mobile responsive */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <Card>
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
-                  <Factory className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 dark:text-blue-400" />
-                </div>
-                <div>
-                  <p className="text-xl sm:text-2xl font-bold">{brands?.length || 0}</p>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Toplam Marka</p>
-                </div>
+          <TabsContent value="brands" className="space-y-8 mt-8">
+            {/* Search and Filter Section */}
+            <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center">
+              <div className="relative w-full lg:w-96">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Marka ara... (örn: BMW, Mercedes)"
+                  className="pl-10 h-12 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:border-primary/50 focus:ring-primary/20"
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setSelectedLetter("");
+                  }}
+                />
               </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg">
-                  <CarFront className="h-4 w-4 sm:h-5 sm:w-5 text-green-600 dark:text-green-400" />
-                </div>
-                <div>
-                  <p className="text-xl sm:text-2xl font-bold">{models?.length || 0}</p>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Toplam Model</p>
-                </div>
+
+              {/* Alphabet Navigation */}
+              <div className="flex flex-wrap gap-1 lg:gap-2">
+                <Button
+                  variant={selectedLetter === "" ? "default" : "outline"}
+                  size="sm"
+                  className="h-8 w-12 text-xs"
+                  onClick={() => {
+                    setSelectedLetter("");
+                    setSearchTerm("");
+                  }}
+                >
+                  Tümü
+                </Button>
+                {availableLetters.map((letter) => (
+                  <Button
+                    key={letter}
+                    variant={selectedLetter === letter ? "default" : "outline"}
+                    size="sm"
+                    className="h-8 w-8 text-xs p-0"
+                    onClick={() => {
+                      setSelectedLetter(letter);
+                      setSearchTerm("");
+                    }}
+                  >
+                    {letter}
+                  </Button>
+                ))}
               </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-100 dark:bg-purple-900/20 rounded-lg">
-                  <Package className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600 dark:text-purple-400" />
-                </div>
-                <div>
-                  <p className="text-xl sm:text-2xl font-bold">{vehicles?.length || 0}</p>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Kayıtlı Araç</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-orange-100 dark:bg-orange-900/20 rounded-lg">
-                  <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600 dark:text-orange-400" />
-                </div>
-                <div>
-                  <p className="text-xl sm:text-2xl font-bold">
-                    {brands?.filter(brand => 
-                      getVehicleCountByBrand(brand.id) > 0
-                    ).length || 0}
-                  </p>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Aktif Marka</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Tabs - Mobile responsive */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 h-auto p-1">
-            <TabsTrigger value="brands" className="text-sm px-4 py-2">
-              Markalar ({brands?.length || 0})
-            </TabsTrigger>
-            <TabsTrigger value="models" className="text-sm px-4 py-2">
-              Modeller ({models?.length || 0})
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="brands" className="mt-4 sm:mt-6">
-            {/* Brands Grid - Mobile responsive */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-              {filteredBrands.map((brand) => (
-                <Card key={brand.id} className="hover:shadow-lg transition-shadow">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <CardTitle className="text-lg sm:text-xl font-bold">
-                          {brand.name}
-                        </CardTitle>
-                        <CardDescription className="text-sm">
-                          Araç Markası
-                        </CardDescription>
-                      </div>
-                      <Badge variant="secondary" className="text-xs">
-                        {getModelCountByBrand(brand.id)} Model
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  
-                  <CardContent className="space-y-3 sm:space-y-4">
-                    {/* Brand Stats */}
-                    <div className="grid grid-cols-2 gap-3 pt-2 border-t">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Model Sayısı</p>
-                        <p className="text-lg font-bold text-primary">
-                          {getModelCountByBrand(brand.id)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Kayıtlı Araç</p>
-                        <p className="text-lg font-bold text-primary">
-                          {getVehicleCountByBrand(brand.id)}
-                        </p>
-                      </div>
-                    </div>
-
-                    {getVehicleCountByBrand(brand.id) > 0 && (
-                      <Badge className="w-full justify-center bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400">
-                        <Factory className="h-3 w-3 mr-1" />
-                        Aktif Kullanımda
-                      </Badge>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
             </div>
 
-            {filteredBrands.length === 0 && (
-              <Card>
-                <CardContent className="p-8 sm:p-12 text-center">
-                  <Factory className="h-12 w-12 sm:h-16 sm:w-16 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg sm:text-xl font-semibold mb-2">Marka bulunamadı</h3>
-                  <p className="text-sm sm:text-base text-muted-foreground">
-                    {searchTerm ? 'Arama kriterlerinize uygun marka bulunamadı.' : 'Henüz kayıtlı marka bulunmuyor.'}
-                  </p>
-                </CardContent>
-              </Card>
+            {isLoadingBrands ? (
+              <div className="flex justify-center items-center py-20">
+                <div className="text-center">
+                  <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto mb-4" />
+                  <p className="text-muted-foreground text-lg">Premium markalar yükleniyor...</p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-8">
+                {/* Popular Brands Section */}
+                {selectedLetter === "" && searchTerm === "" && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                    className="space-y-6"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Star className="h-6 w-6 text-amber-500 fill-amber-500" />
+                      <h2 className="text-2xl font-poppins font-bold text-slate-800 dark:text-slate-100">
+                        Popüler Markalar
+                      </h2>
+                    </div>
+                    
+                    <Card className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
+                      <CardContent className="p-6">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="w-[100px]">Logo</TableHead>
+                              <TableHead>Marka Adı</TableHead>
+                              <TableHead className="text-right">İşlem</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {brands
+                              .filter((brand: CarBrand) => popularBrands.includes(brand.name))
+                              .slice(0, 6)
+                              .map((brand: CarBrand) => (
+                                <TableRow 
+                                  key={`popular-${brand.id}`}
+                                  className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50"
+                                  onClick={() => handleSelectBrand(brand.id)}
+                                >
+                                  <TableCell>
+                                    <div className="w-12 h-8 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 rounded flex items-center justify-center">
+                                      <span className="text-xs font-bold text-primary">{brand.name.charAt(0)}</span>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="font-medium">{brand.name}</TableCell>
+                                  <TableCell className="text-right">
+                                    <Button variant="ghost" size="sm">
+                                      <ChevronRight className="h-4 w-4" />
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                          </TableBody>
+                        </Table>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                )}
+
+                {/* All Brands Table */}
+                <div className="space-y-6">
+                  {letterGroups.map(([letter, letterBrands], groupIndex) => (
+                    <motion.div
+                      key={letter}
+                      initial={{ opacity: 0, y: 30 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: groupIndex * 0.1 }}
+                      className="space-y-4"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-gradient-to-br from-primary to-primary/80 rounded-xl flex items-center justify-center">
+                          <span className="text-xl font-bold text-white">{letter}</span>
+                        </div>
+                        <Separator className="flex-1" />
+                        <Badge variant="outline" className="text-sm">
+                          {letterBrands.length} marka
+                        </Badge>
+                      </div>
+                      
+                      <Card className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
+                        <CardContent className="p-6">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="w-[100px]">Logo</TableHead>
+                                <TableHead>Marka Adı</TableHead>
+                                <TableHead className="text-right">İşlem</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {letterBrands.map((brand: CarBrand) => (
+                                <TableRow 
+                                  key={brand.id}
+                                  className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50"
+                                  onClick={() => handleSelectBrand(brand.id)}
+                                >
+                                  <TableCell>
+                                    <div className="w-12 h-8 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 rounded flex items-center justify-center">
+                                      <span className="text-xs font-bold text-primary">{brand.name.substring(0, 2)}</span>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="font-medium">{brand.name}</TableCell>
+                                  <TableCell className="text-right">
+                                    <Button variant="ghost" size="sm">
+                                      <ChevronRight className="h-4 w-4" />
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ))}
+
+                  {filteredBrands.length === 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="flex flex-col items-center justify-center py-20 text-center"
+                    >
+                      <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-6">
+                        <Search className="h-10 w-10 text-muted-foreground" />
+                      </div>
+                      <h3 className="text-xl font-semibold mb-2">Marka Bulunamadı</h3>
+                      <p className="text-muted-foreground max-w-md">
+                        Aramanıza uygun marka bulunamadı. Lütfen farklı bir arama terimi deneyin veya filtreleri sıfırlayın.
+                      </p>
+                    </motion.div>
+                  )}
+                </div>
+              </div>
             )}
           </TabsContent>
 
-          <TabsContent value="models" className="mt-4 sm:mt-6">
-            {/* Models Grid - Mobile responsive */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-              {filteredModels.map((model) => (
-                <Card key={model.id} className="hover:shadow-lg transition-shadow">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <CardTitle className="text-lg sm:text-xl font-bold">
-                          {model.name}
-                        </CardTitle>
-                        <CardDescription className="text-sm">
-                          {model.car_brands?.name}
-                        </CardDescription>
-                      </div>
-                      <Badge variant="secondary" className="text-xs">
-                        {getVehicleCountByModel(model.id)} Araç
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  
-                  <CardContent className="space-y-3 sm:space-y-4">
-                    {/* Model Stats */}
-                    <div className="pt-2 border-t">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Kayıtlı Araç Sayısı</p>
-                          <p className="text-lg font-bold text-primary">
-                            {getVehicleCountByModel(model.id)}
-                          </p>
-                        </div>
-                        {getVehicleCountByModel(model.id) > 0 && (
-                          <Badge variant="outline" className="text-xs">
-                            <CarFront className="h-3 w-3 mr-1" />
-                            Aktif
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
+          <TabsContent value="models" className="space-y-8 mt-8">
+            {/* Models Hero Section */}
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="relative bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-800 dark:to-slate-900 rounded-2xl overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-black/20"></div>
+              <div className="relative px-8 py-12 text-white">
+                <div className="flex flex-col lg:flex-row items-start lg:items-center gap-6">
+                  <Button 
+                    variant="secondary" 
+                    onClick={() => handleTabChange("brands")}
+                    className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white border-white/20"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Markalara Dön
+                  </Button>
+                  <div className="space-y-2">
+                    <h2 className="text-3xl lg:text-4xl font-poppins font-bold">
+                      {getBrandName()} Koleksiyonu
+                    </h2>
+                    <p className="text-lg text-white/80">
+                      Toplam {models.length} prestijli model listeleniyor
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
 
-                    <div>
-                      <p className="text-xs text-muted-foreground">Eklenme Tarihi</p>
-                      <p className="text-sm font-medium">
-                        {new Date(model.created_at).toLocaleDateString('tr-TR')}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            {filteredModels.length === 0 && (
-              <Card>
-                <CardContent className="p-8 sm:p-12 text-center">
-                  <CarFront className="h-12 w-12 sm:h-16 sm:w-16 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg sm:text-xl font-semibold mb-2">Model bulunamadı</h3>
-                  <p className="text-sm sm:text-base text-muted-foreground">
-                    {searchTerm ? 'Arama kriterlerinize uygun model bulunamadı.' : 'Henüz kayıtlı model bulunmuyor.'}
+            {isLoadingModels ? (
+              <div className="flex justify-center items-center py-20">
+                <div className="text-center">
+                  <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto mb-4" />
+                  <p className="text-muted-foreground text-lg">
+                    {getBrandName()} modelleri yükleniyor...
                   </p>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
+            ) : (
+              <div>
+                {models.length > 0 ? (
+                  <Card className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
+                    <CardContent className="p-6">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Model Adı</TableHead>
+                            <TableHead>Marka</TableHead>
+                            <TableHead className="text-right">İşlem</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {models.map((model: CarModel) => (
+                            <TableRow 
+                              key={model.id}
+                              className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50"
+                            >
+                              <TableCell className="font-medium">{model.name}</TableCell>
+                              <TableCell className="text-muted-foreground">{getBrandName()}</TableCell>
+                              <TableCell className="text-right">
+                                <Button variant="outline" size="sm">
+                                  <TrendingUp className="h-4 w-4 mr-2" />
+                                  Araçları Görüntüle
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="flex flex-col items-center justify-center py-20 text-center"
+                  >
+                    <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-6">
+                      <TrendingUp className="h-10 w-10 text-muted-foreground" />
+                    </div>
+                    <h3 className="text-xl font-semibold mb-2">Model Bulunamadı</h3>
+                    <p className="text-muted-foreground max-w-md">
+                      Bu markaya ait herhangi bir model bulunmuyor. Lütfen farklı bir marka seçin.
+                    </p>
+                  </motion.div>
+                )}
+              </div>
             )}
           </TabsContent>
         </Tabs>
       </div>
     </div>
   );
-};
-
-export default Brands;
+}

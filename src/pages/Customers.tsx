@@ -1,262 +1,415 @@
-
-import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Users, Phone, Mail, Car, Calendar } from 'lucide-react';
-import { useSupabaseQuery } from '@/hooks/use-supabase-query';
-import { CustomerModal } from '@/components/customers/CustomerModal';
-import { LoadingOverlay } from '@/components/loading-overlay';
+import React, { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useToast } from "@/hooks/use-toast";
+import { Eye, Pencil, Plus, Search, Filter, Trash2, Loader2 } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { CustomerModal } from "@/components/customers/CustomerModal";
+import { CustomerCard } from "@/components/customers/CustomerCard";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { useSupabaseQuery, useSupabaseCreate, useSupabaseUpdate, useSupabaseDelete } from "@/hooks/use-supabase-query";
+import { useAuth } from "@/contexts/AuthContext";
+// Import müşteri tipi ve yardımcı fonksiyonu
+import { Customer, normalizeCustomer } from "@/types/customer";
+import { saveVehicle } from "@/lib/vehicle-utils";
 
 const Customers = () => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const isMobile = useIsMobile();
+  const { toast } = useToast();
+  const { userProfile } = useAuth();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [currentCustomer, setCurrentCustomer] = useState<Customer | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
-  const { data: customers, isLoading, refetch } = useSupabaseQuery('customers', {
-    select: '*',
+  // Fetch customers from Supabase
+  const { data: customersData, isLoading, isError, refetch } = useSupabaseQuery('customers', {
+    page: currentPage,
+    pageSize,
     orderBy: 'created_at',
-    orderDirection: 'desc'
+    orderDirection: 'desc',
+    select: '*, vehicles(count)'
   });
 
-  // Get vehicle counts for each customer
-  const { data: vehicles } = useSupabaseQuery('vehicles', {
-    select: 'customer_id'
-  });
+  // Create, update, and delete mutations
+  const createCustomer = useSupabaseCreate('customers');
+  const updateCustomer = useSupabaseUpdate('customers');
+  const deleteCustomer = useSupabaseDelete('customers');
+  const createVehicle = useSupabaseCreate('vehicles');
+  const updateVehicle = useSupabaseUpdate('vehicles');
 
-  const filteredCustomers = customers?.filter(customer =>
-    customer.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.phone?.includes(searchTerm) ||
-    customer.email?.toLowerCase().includes(searchTerm.toLowerCase())
+  // Process customer data to include vehicle count
+  const customers: Customer[] = customersData?.data?.map((customer: any) => 
+    normalizeCustomer({
+      ...customer,
+      vehicle_count: customer.vehicles?.length || 0,
+      vehicleCount: customer.vehicles?.length || 0
+    })
   ) || [];
 
-  const getVehicleCount = (customerId: string) => {
-    return vehicles?.filter(vehicle => vehicle.customer_id === customerId).length || 0;
+  // Filter customers based on search term
+  const filteredCustomers = customers.filter((customer) =>
+    `${customer.first_name} ${customer.last_name}`
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase()) ||
+    customer.phone?.includes(searchTerm) ||
+    customer.email?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Calculate total pages
+  const totalItems = customersData?.count || 0;
+  const totalPages = Math.ceil(totalItems / pageSize);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
   };
 
   const handleAddCustomer = () => {
-    setSelectedCustomer(null);
-    setIsModalOpen(true);
+    setCurrentCustomer(null); // Set to null for adding a new customer
+    setModalOpen(true);
   };
 
-  const handleEditCustomer = (customer: any) => {
-    setSelectedCustomer(customer);
-    setIsModalOpen(true);
+  const handleEditCustomer = (customer: Customer) => {
+    setCurrentCustomer(normalizeCustomer(customer));
+    setModalOpen(true);
   };
 
-  if (isLoading) {
-    return <LoadingOverlay message="Müşteriler yükleniyor..." />;
-  }
+  const handleViewCustomer = (customer: Customer) => {
+    toast({
+      title: "Müşteri Bilgileri",
+      description: `${customer.first_name} ${customer.last_name} detayları görüntülendi.`,
+    });
+  };
+
+  const handleSaveCustomer = async (customer: Customer, isNew: boolean) => {
+    try {
+      let customerId = customer.id;
+      
+      // Save customer information
+      if (isNew) {
+        // Add new customer
+        const newCustomer = await createCustomer.mutateAsync({
+          first_name: customer.firstName || customer.first_name,
+          last_name: customer.lastName || customer.last_name,
+          phone: customer.phone,
+          email: customer.email,
+          address: customer.address
+        });
+        
+        customerId = newCustomer.id;
+        
+        toast({
+          title: "Müşteri Eklendi",
+          description: "Yeni müşteri başarıyla eklendi.",
+          variant: "default",
+        });
+      } else {
+        // Update existing customer
+        await updateCustomer.mutateAsync({
+          id: customer.id,
+          data: {
+            first_name: customer.firstName || customer.first_name,
+            last_name: customer.lastName || customer.last_name,
+            phone: customer.phone,
+            email: customer.email,
+            address: customer.address
+          }
+        });
+        toast({
+          title: "Müşteri Güncellendi",
+          description: "Müşteri bilgileri başarıyla güncellendi.",
+          variant: "default",
+        });
+      }
+      
+      // Save vehicle information if provided
+      if (customer.vehicle) {
+        try {
+          // Use the saveVehicle utility function, now passing the tenant ID
+          await saveVehicle(customer.vehicle, customerId, userProfile?.tenant_id);
+          
+          toast({
+            title: customer.vehicle.id ? "Araç Güncellendi" : "Araç Eklendi",
+            description: customer.vehicle.id 
+              ? "Araç bilgileri başarıyla güncellendi." 
+              : "Yeni araç başarıyla eklendi.",
+            variant: "default",
+          });
+        } catch (vehicleError: any) {
+          console.error("Araç kaydederken hata:", vehicleError);
+          toast({
+            title: "Araç Hata",
+            description: vehicleError.message || "Araç bilgileri kaydedilirken hata oluştu.",
+            variant: "destructive",
+          });
+        }
+      }
+      
+      // Refetch customers to update the list
+      refetch();
+      setModalOpen(false);
+    } catch (error: any) {
+      console.error("Müşteri/araç kaydederken hata:", error);
+      toast({
+        title: "Hata",
+        description: error.message || "İşlem sırasında bir hata oluştu.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteCustomer = async (customerId: string) => {
+    try {
+      await deleteCustomer.mutateAsync(customerId);
+      toast({
+        title: "Müşteri Silindi",
+        description: "Müşteri kaydı başarıyla silindi.",
+        variant: "default",
+      });
+      refetch();
+    } catch (error: any) {
+      toast({
+        title: "Hata",
+        description: error.message || "Silme işlemi sırasında bir hata oluştu.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="space-y-4 sm:space-y-6">
-        {/* Header - Mobile responsive */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight">
-              Müşteriler
-            </h1>
-            <p className="text-sm sm:text-base text-muted-foreground">
-              Müşteri bilgilerini görüntüleyin ve yönetin
-            </p>
-          </div>
-          <Button 
-            onClick={handleAddCustomer} 
-            className="w-full sm:w-auto"
-            size="default"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Yeni Müşteri
-          </Button>
-        </div>
-
-        {/* Search - Mobile responsive */}
-        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            <Input
-              placeholder="Ad, soyad, telefon veya e-posta ara..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </div>
-
-        {/* Stats Cards - Mobile responsive */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <Card>
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
-                  <Users className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 dark:text-blue-400" />
-                </div>
-                <div>
-                  <p className="text-xl sm:text-2xl font-bold">{customers?.length || 0}</p>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Toplam Müşteri</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg">
-                  <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-green-600 dark:text-green-400" />
-                </div>
-                <div>
-                  <p className="text-xl sm:text-2xl font-bold">
-                    {customers?.filter(c => 
-                      new Date(c.created_at) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-                    ).length || 0}
-                  </p>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Bu Ay Yeni</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-100 dark:bg-purple-900/20 rounded-lg">
-                  <Car className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600 dark:text-purple-400" />
-                </div>
-                <div>
-                  <p className="text-xl sm:text-2xl font-bold">{vehicles?.length || 0}</p>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Toplam Araç</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-orange-100 dark:bg-orange-900/20 rounded-lg">
-                  <Mail className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600 dark:text-orange-400" />
-                </div>
-                <div>
-                  <p className="text-xl sm:text-2xl font-bold">
-                    {customers?.filter(c => c.email).length || 0}
-                  </p>
-                  <p className="text-xs sm:text-sm text-muted-foreground">E-posta Var</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Customers Grid - Mobile responsive */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
-          {filteredCustomers.map((customer) => (
-            <Card key={customer.id} className="hover:shadow-lg transition-shadow cursor-pointer">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <CardTitle className="text-lg sm:text-xl font-bold">
-                      {customer.first_name} {customer.last_name}
-                    </CardTitle>
-                    <CardDescription className="text-sm">
-                      Kayıt: {new Date(customer.created_at).toLocaleDateString('tr-TR')}
-                    </CardDescription>
-                  </div>
-                  <Badge variant="secondary" className="text-xs">
-                    {getVehicleCount(customer.id)} Araç
-                  </Badge>
-                </div>
-              </CardHeader>
-              
-              <CardContent className="space-y-3 sm:space-y-4">
-                {/* Contact Info */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm">
-                    <div className="p-1 bg-green-100 dark:bg-green-900/20 rounded">
-                      <Phone className="h-3 w-3 text-green-600 dark:text-green-400" />
-                    </div>
-                    <span className="font-medium">{customer.phone}</span>
-                  </div>
-                  
-                  {customer.email && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <div className="p-1 bg-blue-100 dark:bg-blue-900/20 rounded ml-1">
-                        <Mail className="h-3 w-3 text-blue-600 dark:text-blue-400" />
-                      </div>
-                      <span className="truncate">{customer.email}</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Address */}
-                {customer.address && (
-                  <div className="pt-2 border-t">
-                    <p className="text-xs text-muted-foreground">Adres</p>
-                    <p className="text-sm font-medium line-clamp-2">{customer.address}</p>
-                  </div>
-                )}
-
-                {/* Vehicle Info */}
-                <div className="pt-2 border-t">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-muted-foreground">Araç Sayısı</p>
-                      <p className="text-sm font-medium">{getVehicleCount(customer.id)}</p>
-                    </div>
-                    {getVehicleCount(customer.id) > 0 && (
-                      <Badge variant="outline" className="text-xs">
-                        <Car className="h-3 w-3 mr-1" />
-                        Aktif Müşteri
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="pt-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => handleEditCustomer(customer)}
-                    className="w-full"
-                  >
-                    Detayları Görüntüle
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {filteredCustomers.length === 0 && (
-          <Card>
-            <CardContent className="p-8 sm:p-12 text-center">
-              <Users className="h-12 w-12 sm:h-16 sm:w-16 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg sm:text-xl font-semibold mb-2">Müşteri bulunamadı</h3>
-              <p className="text-sm sm:text-base text-muted-foreground mb-4">
-                {searchTerm ? 'Arama kriterlerinize uygun müşteri bulunamadı.' : 'Henüz kayıtlı müşteri bulunmuyor.'}
-              </p>
-              <Button onClick={handleAddCustomer} className="w-full sm:w-auto">
-                <Plus className="h-4 w-4 mr-2" />
-                İlk Müşteriyi Ekle
-              </Button>
-            </CardContent>
-          </Card>
-        )}
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex flex-col gap-2">
+        <h1 className="text-2xl md:text-3xl font-poppins font-bold">Müşteriler</h1>
+        <p className="text-sm text-muted-foreground font-roboto">
+          Tüm müşteri kayıtlarını görüntüleyin ve yönetin
+        </p>
       </div>
 
-      <CustomerModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        customer={selectedCustomer}
-        onSave={() => {
-          refetch();
-          setIsModalOpen(false);
-        }}
-      />
+      <div className="flex flex-col sm:flex-row justify-between gap-4">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Müşteri ara..."
+              className="pl-8 w-full"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <Button variant="outline" size="icon">
+            <Filter className="h-4 w-4" />
+          </Button>
+        </div>
+        <Button 
+          onClick={handleAddCustomer} 
+          className="bg-primary hover:bg-primary/90 text-white"
+        >
+          <Plus className="h-4 w-4 mr-2" /> Müşteri Ekle
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <div className="flex justify-center items-center p-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <span className="ml-2">Müşteriler yükleniyor...</span>
+        </div>
+      ) : isError ? (
+        <Card className="p-8 flex flex-col items-center justify-center">
+          <p className="text-lg font-medium mb-4">Veri yüklenirken bir hata oluştu</p>
+          <Button onClick={() => refetch()}>Yeniden Dene</Button>
+        </Card>
+      ) : filteredCustomers.length === 0 ? (
+        <Card className="p-8 flex flex-col items-center justify-center">
+          <p className="text-lg font-medium mb-4">Müşteri bulunamadı</p>
+          <p className="text-muted-foreground mb-6">Aramayı değiştirin veya yeni bir müşteri ekleyin</p>
+          <Button onClick={handleAddCustomer}>
+            <Plus className="h-4 w-4 mr-2" /> Müşteri Ekle
+          </Button>
+        </Card>
+      ) : isMobile ? (
+        <div className="grid grid-cols-1 gap-4">
+          {filteredCustomers.map((customer) => (
+            <CustomerCard
+              key={customer.id}
+              customer={{
+                ...customer,
+                firstName: customer.first_name,
+                lastName: customer.last_name,
+                vehicleCount: customer.vehicleCount || 0
+              }}
+              onView={() => handleViewCustomer(customer)}
+              onEdit={() => handleEditCustomer(customer)}
+              onDelete={() => handleDeleteCustomer(customer.id)}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-md border shadow">
+          <Table>
+            <TableHeader className="bg-muted/50">
+              <TableRow>
+                <TableHead>Müşteri</TableHead>
+                <TableHead>İletişim</TableHead>
+                <TableHead>Adres</TableHead>
+                <TableHead>Araç Sayısı</TableHead>
+                <TableHead className="text-right">İşlemler</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredCustomers.map((customer) => (
+                <TableRow key={customer.id}>
+                  <TableCell className="font-medium">
+                    {customer.first_name} {customer.last_name}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span className="text-sm">{customer.phone}</span>
+                      <span className="text-xs text-muted-foreground">{customer.email}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="max-w-xs truncate">
+                    {customer.address}
+                  </TableCell>
+                  <TableCell>
+                    {customer.vehicleCount || 0}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              onClick={() => handleViewCustomer(customer)}
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Müşteri Detayları</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              onClick={() => handleEditCustomer(customer)}
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Düzenle</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-destructive"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Müşteriyi Sil</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    {customer.first_name} {customer.last_name} isimli müşteriyi silmek 
+                                    istediğinizden emin misiniz? Bu işlem geri alınamaz.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>İptal</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => handleDeleteCustomer(customer.id)}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  >
+                                    Sil
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Sil</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="p-4 border-t flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">
+                Toplam {totalItems} müşteri
+              </span>
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                      className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
+                    />
+                  </PaginationItem>
+                  
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <PaginationItem key={page}>
+                      <PaginationLink
+                        onClick={() => handlePageChange(page)}
+                        isActive={currentPage === page}
+                      >
+                        {page}
+                      </PaginationLink>
+                    </PaginationItem>
+                  ))}
+                  
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                      className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Customer Modal */}
+      {modalOpen && (
+        <CustomerModal
+          open={modalOpen}
+          onOpenChange={setModalOpen}
+          customer={currentCustomer}
+          onSave={handleSaveCustomer}
+        />
+      )}
     </div>
   );
 };

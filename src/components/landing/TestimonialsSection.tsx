@@ -19,26 +19,22 @@ export const TestimonialsSection = () => {
   ];
 
   return (
-    <section className="py-12 sm:py-16 md:py-20">
-      <div className="container px-4 sm:px-6">
-        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-semibold font-poppins mb-8 sm:mb-12 text-center">
-          Müşterilerimiz Ne Diyor?
-        </h2>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+    <section className="py-20">
+      <div className="container">
+        <h2 className="text-3xl font-semibold font-poppins mb-12 text-center">Müşterilerimiz Ne Diyor?</h2>
+        <div className="grid md:grid-cols-3 gap-8">
           {testimonials.map((testimonial, i) => (
-            <div key={i} className="bg-muted/30 rounded-xl p-4 sm:p-6 shadow">
+            <div key={i} className="bg-muted/30 rounded-xl p-6 shadow">
               <div className="flex items-center mb-1">
                 {[1, 2, 3, 4, 5].map((star) => (
-                  <svg key={star} xmlns="http://www.w3.org/2000/svg" width="14" height="14" className="sm:w-4 sm:h-4" viewBox="0 0 24 24" fill="#FFCA28" stroke="none">
+                  <svg key={star} xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="#FFCA28" stroke="none">
                     <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
                   </svg>
                 ))}
               </div>
-              <p className="italic text-muted-foreground mb-3 sm:mb-4 text-sm sm:text-base">
-                "{testimonial.comment}"
-              </p>
-              <div className="font-medium text-sm sm:text-base">{testimonial.name}</div>
-              <div className="text-xs sm:text-sm text-muted-foreground">{testimonial.company}</div>
+              <p className="italic text-muted-foreground mb-4">{testimonial.comment}</p>
+              <div className="font-medium">{testimonial.name}</div>
+              <div className="text-sm text-muted-foreground">{testimonial.company}</div>
             </div>
           ))}
         </div>

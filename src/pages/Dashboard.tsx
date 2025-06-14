@@ -1,134 +1,424 @@
-
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { StatCard } from '@/components/stat-card';
+import { Button } from '@/components/ui/button';
+import { DateRange } from 'react-day-picker';
+import { addDays, format, parseISO, subDays, startOfMonth, endOfMonth } from 'date-fns';
+import { CarIcon, CreditCardIcon, WrenchIcon, Loader2 } from 'lucide-react';
+import { DateRangePicker } from '@/components/date-range-picker';
 import { RevenueChart } from '@/components/revenue-chart';
+import { StatCard } from '@/components/stat-card';
 import { RecentServices } from '@/components/recent-services';
 import { DailySchedules } from '@/components/daily-schedules';
-import { Car, Users, Wrench, TrendingUp, Calendar, Clock } from 'lucide-react';
-import { useSupabaseQuery } from '@/hooks/use-supabase-query';
+import { LoadingOverlay } from '@/components/loading-overlay';
+import { AnimatedCarLoader } from '@/components/animated-car-loader';
+import { withTenantFilter } from '@/lib/tenant-utils';
 
-const Dashboard = () => {
-  // Dashboard stats query
-  const { data: stats, isLoading: statsLoading } = useSupabaseQuery('dashboard_stats', {
-    select: '*',
-    limit: 1
+const Dashboard: React.FC = () => {
+  const { userProfile } = useAuth();
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: addDays(new Date(), -30),
+    to: new Date(),
   });
 
-  // Recent services query
-  const { data: recentServices, isLoading: servicesLoading } = useSupabaseQuery('service_details', {
-    select: '*',
-    orderBy: 'created_at',
-    orderDirection: 'desc',
-    limit: 5
-  });
-
-  const dashboardStats = stats?.[0] || {
-    active_vehicles: 0,
-    delivered_this_month: 0,
-    monthly_revenue: 0,
-    yearly_revenue: 0
+  // Function to calculate percentage change
+  const calculatePercentChange = (current: number, previous: number): number => {
+    if (previous === 0) return current > 0 ? 100 : 0;
+    return Math.round(((current - previous) / previous) * 100);
   };
 
-  return (
-    <div className="min-h-screen bg-background">
-      <div className="space-y-4 sm:space-y-6 lg:space-y-8">
-        {/* Header */}
-        <div className="space-y-2">
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight">
-            Kontrol Paneli
-          </h1>
-          <p className="text-sm sm:text-base text-muted-foreground">
-            Servis merkezinizin genel durumu ve istatistikleri
-          </p>
-        </div>
-
-        {/* Stats Grid - Mobile responsive */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
-          <StatCard
-            title="Aktif Araçlar"
-            value={dashboardStats.active_vehicles?.toString() || '0'}
-            icon={Car}
-            description="Serviste bulunan araçlar"
-            isLoading={statsLoading}
-          />
-          <StatCard
-            title="Bu Ay Teslim"
-            value={dashboardStats.delivered_this_month?.toString() || '0'}
-            icon={Calendar}
-            description="Tamamlanan servisler"
-            isLoading={statsLoading}
-          />
-          <StatCard
-            title="Aylık Gelir"
-            value={`₺${Number(dashboardStats.monthly_revenue || 0).toLocaleString('tr-TR')}`}
-            icon={TrendingUp}
-            description="Bu ay elde edilen gelir"
-            isLoading={statsLoading}
-          />
-          <StatCard
-            title="Yıllık Gelir"
-            value={`₺${Number(dashboardStats.yearly_revenue || 0).toLocaleString('tr-TR')}`}
-            icon={TrendingUp}
-            description="Bu yıl toplam gelir"
-            isLoading={statsLoading}
-          />
-        </div>
-
-        {/* Charts and Recent Activity - Mobile responsive grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-          {/* Revenue Chart - Takes full width on mobile, 2/3 on desktop */}
-          <div className="lg:col-span-2">
-            <Card className="h-full">
-              <CardHeader className="pb-3 sm:pb-4">
-                <CardTitle className="text-lg sm:text-xl">Gelir Analizi</CardTitle>
-                <CardDescription className="text-sm">
-                  Son 12 ayın gelir trendi
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-3 sm:p-6 pt-0">
-                <div className="h-[300px] sm:h-[350px] lg:h-[400px]">
-                  <RevenueChart />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Recent Services - Takes full width on mobile, 1/3 on desktop */}
-          <div className="lg:col-span-1">
-            <Card className="h-full">
-              <CardHeader className="pb-3 sm:pb-4">
-                <CardTitle className="text-lg sm:text-xl flex items-center gap-2">
-                  <Clock className="h-4 w-4 sm:h-5 sm:w-5" />
-                  Son Servisler
-                </CardTitle>
-                <CardDescription className="text-sm">
-                  En son yapılan servis işlemleri
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-3 sm:p-6 pt-0">
-                <RecentServices services={recentServices || []} isLoading={servicesLoading} />
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
-        {/* Daily Schedules - Full width, better mobile layout */}
-        <Card>
-          <CardHeader className="pb-3 sm:pb-4">
-            <CardTitle className="text-lg sm:text-xl flex items-center gap-2">
-              <Wrench className="h-4 w-4 sm:h-5 sm:w-5" />
-              Günlük Program
-            </CardTitle>
-            <CardDescription className="text-sm">
-              Bugün yapılacak servis işlemleri
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-3 sm:p-6 pt-0">
-            <DailySchedules />
-          </CardContent>
-        </Card>
+  if (!userProfile) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen">
+        <AnimatedCarLoader size={250} />
+        <h2 className="text-xl font-medium mt-6">Kullanıcı bilgileri yükleniyor...</h2>
       </div>
+    );
+  }
+
+  if (!userProfile.tenant_id) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen">
+        <h2 className="text-xl font-medium text-red-500 mb-4">Tenant bilgisi bulunamadı</h2>
+        <p>Firma bilgilerinize erişilemiyor. Sistem yöneticisiyle iletişime geçin.</p>
+      </div>
+    );
+  }
+
+  const { data: stats, isLoading: statsLoading } = useQuery({
+    queryKey: ['dashboardStats', userProfile?.tenant_id, dateRange?.from, dateRange?.to],
+    queryFn: async () => {
+      if (!userProfile?.tenant_id || !dateRange?.from || !dateRange?.to) {
+        return null;
+      }
+
+      console.log('Dashboard: Running query with tenant ID:', userProfile.tenant_id);
+
+      try {
+        // Get date ranges for comparison
+        const today = new Date();
+        const lastWeekStart = subDays(today, 7);
+        const twoWeeksAgoStart = subDays(today, 14);
+        const lastMonthStart = startOfMonth(subDays(today, 30));
+        const twoMonthsAgoStart = startOfMonth(subDays(today, 60));
+        
+        // Get active services count (in_progress and waiting status)
+        const activeServicesQuery = withTenantFilter(
+          supabase
+            .from('services')
+            .select('id', { count: 'exact' })
+            .in('status', ['in_progress', 'waiting']),
+          userProfile.tenant_id
+        );
+        
+        const { count: activeServices, error: activeError } = await activeServicesQuery;
+        
+        if (activeError) {
+          console.error('Error fetching active services:', activeError);
+        }
+
+        // Get active services count from last week for comparison
+        const lastWeekActiveQuery = withTenantFilter(
+          supabase
+            .from('services')
+            .select('id', { count: 'exact' })
+            .in('status', ['in_progress', 'waiting'])
+            .lt('created_at', lastWeekStart.toISOString()),
+          userProfile.tenant_id
+        );
+        
+        const { count: lastWeekActive, error: lastWeekActiveError } = await lastWeekActiveQuery;
+        
+        if (lastWeekActiveError) {
+          console.error('Error fetching last week active services:', lastWeekActiveError);
+        }
+
+        // Get vehicles delivered this month
+        const thisMonthStart = startOfMonth(today);
+        const thisMonthEnd = endOfMonth(today);
+        
+        const deliveredThisMonthQuery = withTenantFilter(
+          supabase
+            .from('services')
+            .select('id', { count: 'exact' })
+            .eq('status', 'delivered')
+            .gte('delivery_date', thisMonthStart.toISOString())
+            .lte('delivery_date', thisMonthEnd.toISOString()),
+          userProfile.tenant_id
+        );
+        
+        const { count: deliveredThisMonth, error: deliveredThisMonthError } = await deliveredThisMonthQuery;
+        
+        // Get vehicles delivered last month for comparison
+        const lastMonthEnd = endOfMonth(lastMonthStart);
+        
+        const deliveredLastMonthQuery = withTenantFilter(
+          supabase
+            .from('services')
+            .select('id', { count: 'exact' })
+            .eq('status', 'delivered')
+            .gte('delivery_date', lastMonthStart.toISOString())
+            .lte('delivery_date', lastMonthEnd.toISOString()),
+          userProfile.tenant_id
+        );
+        
+        const { count: deliveredLastMonth, error: deliveredLastMonthError } = await deliveredLastMonthQuery;
+
+        // Get revenue data for this month (completed and delivered services)
+        const revenueQuery = withTenantFilter(
+          supabase
+            .from('services')
+            .select('labor_cost, parts_cost')
+            .in('status', ['completed', 'delivered'])
+            .gte('updated_at', thisMonthStart.toISOString())
+            .lte('updated_at', thisMonthEnd.toISOString()),
+          userProfile.tenant_id
+        );
+        
+        const { data: revenueData, error: revenueError } = await revenueQuery;
+        
+        if (revenueError) {
+          console.error('Error fetching revenue data:', revenueError);
+        }
+        
+        // Calculate monthly revenue
+        const monthlyRevenue = revenueData?.reduce((sum, service) => 
+          sum + (Number(service.labor_cost) || 0) + (Number(service.parts_cost) || 0), 0) || 0;
+        
+        // Get last month's revenue for comparison
+        const lastMonthRevenueQuery = withTenantFilter(
+          supabase
+            .from('services')
+            .select('labor_cost, parts_cost')
+            .in('status', ['completed', 'delivered'])
+            .gte('updated_at', lastMonthStart.toISOString())
+            .lte('updated_at', lastMonthEnd.toISOString()),
+          userProfile.tenant_id
+        );
+        
+        const { data: lastMonthRevenueData, error: lastMonthRevenueError } = await lastMonthRevenueQuery;
+        
+        const lastMonthRevenue = lastMonthRevenueData?.reduce((sum, service) => 
+          sum + (Number(service.labor_cost) || 0) + (Number(service.parts_cost) || 0), 0) || 0;
+        
+        // Get yearly revenue
+        const startOfYear = new Date(today.getFullYear(), 0, 1);
+        const endOfYear = new Date(today.getFullYear(), 11, 31, 23, 59, 59);
+        
+        const yearlyRevenueQuery = withTenantFilter(
+          supabase
+            .from('services')
+            .select('labor_cost, parts_cost')
+            .in('status', ['completed', 'delivered'])
+            .gte('updated_at', startOfYear.toISOString())
+            .lte('updated_at', endOfYear.toISOString()),
+          userProfile.tenant_id
+        );
+        
+        const { data: yearlyRevenueData, error: yearlyRevenueError } = await yearlyRevenueQuery;
+        
+        if (yearlyRevenueError) {
+          console.error('Error fetching yearly revenue data:', yearlyRevenueError);
+        }
+        
+        // Calculate yearly revenue
+        const yearlyRevenue = yearlyRevenueData?.reduce((sum, service) => 
+          sum + (Number(service.labor_cost) || 0) + (Number(service.parts_cost) || 0), 0) || 0;
+        
+        // Get last year's revenue for comparison
+        const lastYearStart = new Date(today.getFullYear() - 1, 0, 1);
+        const lastYearEnd = new Date(today.getFullYear() - 1, 11, 31, 23, 59, 59);
+        
+        const lastYearRevenueQuery = withTenantFilter(
+          supabase
+            .from('services')
+            .select('labor_cost, parts_cost')
+            .in('status', ['completed', 'delivered'])
+            .gte('updated_at', lastYearStart.toISOString())
+            .lte('updated_at', lastYearEnd.toISOString()),
+          userProfile.tenant_id
+        );
+        
+        const { data: lastYearRevenueData, error: lastYearRevenueError } = await lastYearRevenueQuery;
+        
+        const lastYearRevenue = lastYearRevenueData?.reduce((sum, service) => 
+          sum + (Number(service.labor_cost) || 0) + (Number(service.parts_cost) || 0), 0) || 0;
+
+        // Calculate percentage changes
+        const activeServicesTrend = calculatePercentChange(activeServices || 0, lastWeekActive || 0);
+        const deliveredTrend = calculatePercentChange(deliveredThisMonth || 0, deliveredLastMonth || 0);
+        const monthlyRevenueTrend = calculatePercentChange(monthlyRevenue, lastMonthRevenue);
+        const yearlyRevenueTrend = calculatePercentChange(yearlyRevenue, lastYearRevenue);
+
+        console.log('Dashboard stats calculated:', {
+          activeServices,
+          deliveredThisMonth,
+          monthlyRevenue,
+          yearlyRevenue
+        });
+
+        return {
+          active_vehicles: activeServices || 0,
+          delivered_this_month: deliveredThisMonth || 0,
+          monthly_revenue: monthlyRevenue,
+          yearly_revenue: yearlyRevenue,
+          activeServicesTrend,
+          deliveredTrend,
+          monthlyRevenueTrend,
+          yearlyRevenueTrend
+        };
+      } catch (error) {
+        console.error('Error fetching dashboard stats:', error);
+        return null;
+      }
+    },
+    enabled: !!userProfile?.tenant_id && !!dateRange?.from && !!dateRange?.to,
+    refetchInterval: 60000, // Refresh data every minute
+  });
+
+  const { data: monthlyRevenueData, isLoading: revenueLoading } = useQuery({
+    queryKey: ['monthlyRevenue', userProfile?.tenant_id, dateRange?.from, dateRange?.to],
+    queryFn: async () => {
+      if (!userProfile?.tenant_id || !dateRange?.from || !dateRange?.to) {
+        return [];
+      }
+
+      // Get current year for filtering
+      const currentYear = new Date().getFullYear();
+      
+      // Create an array of months (0-11)
+      const months = Array.from({ length: 12 }, (_, i) => i);
+      
+      // Initialize result with zero values for all months
+      const result = months.map(month => {
+        const monthNames = [
+          'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 
+          'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'
+        ];
+        
+        return {
+          name: monthNames[month],
+          month: month,
+          total: 0
+        };
+      });
+      
+      // Query all completed services for the current year
+      const startDate = new Date(currentYear, 0, 1).toISOString();
+      const endDate = new Date(currentYear, 11, 31, 23, 59, 59).toISOString();
+      
+      const revenueQuery = withTenantFilter(
+        supabase
+          .from('services')
+          .select('updated_at, labor_cost, parts_cost')
+          .in('status', ['completed', 'delivered'])
+          .gte('updated_at', startDate)
+          .lte('updated_at', endDate),
+        userProfile.tenant_id
+      );
+      
+      const { data: servicesData, error: servicesError } = await revenueQuery;
+      
+      if (servicesError) {
+        console.error('Error fetching monthly revenue data:', servicesError);
+        return result;
+      }
+      
+      // Aggregate revenue by month
+      servicesData?.forEach(service => {
+        if (service.updated_at) {
+          const date = parseISO(service.updated_at);
+          const month = date.getMonth();
+          const totalServiceRevenue = (Number(service.labor_cost) || 0) + (Number(service.parts_cost) || 0);
+          result[month].total += totalServiceRevenue;
+        }
+      });
+      
+      return result;
+    },
+    enabled: !!userProfile?.tenant_id && !!dateRange?.from && !!dateRange?.to,
+    refetchInterval: 60000, // Refresh data every minute
+  });
+
+  return (
+    <div className="flex flex-col gap-6 w-full max-w-full">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <h1 className="text-2xl font-bold tracking-tight">Kontrol Paneli</h1>
+        <DateRangePicker
+          dateRange={dateRange}
+          onDateRangeChange={setDateRange}
+        />
+      </div>
+
+      {statsLoading ? (
+        <div className="flex justify-center items-center p-8">
+          <AnimatedCarLoader size={180} />
+        </div>
+      ) : (
+        <Tabs defaultValue="overview" className="space-y-4 w-full">
+          <TabsList>
+            <TabsTrigger value="overview">Genel Bakış</TabsTrigger>
+            <TabsTrigger value="analytics">Analitik</TabsTrigger>
+          </TabsList>
+          <TabsContent value="overview" className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <StatCard
+                title="Aktif Servisler"
+                value={Number(stats?.active_vehicles || 0)}
+                description="Devam eden servis işlemleri"
+                icon={<WrenchIcon className="h-4 w-4 text-muted-foreground" />}
+                trend={{
+                  value: Math.abs(stats?.activeServicesTrend || 0),
+                  isPositive: (stats?.activeServicesTrend || 0) >= 0,
+                  label: "geçen haftadan"
+                }}
+              />
+              <StatCard
+                title="Bu Ay Teslim Edilen"
+                value={Number(stats?.delivered_this_month || 0)}
+                description="Teslim edilen araçlar"
+                icon={<CarIcon className="h-4 w-4 text-muted-foreground" />}
+                trend={{
+                  value: Math.abs(stats?.deliveredTrend || 0),
+                  isPositive: (stats?.deliveredTrend || 0) >= 0,
+                  label: "geçen aydan"
+                }}
+              />
+              <StatCard
+                title="Aylık Gelir"
+                value={Number(stats?.monthly_revenue || 0)}
+                description="Bu ayki toplam gelir"
+                icon={<CreditCardIcon className="h-4 w-4 text-muted-foreground" />}
+                trend={{
+                  value: Math.abs(stats?.monthlyRevenueTrend || 0),
+                  isPositive: (stats?.monthlyRevenueTrend || 0) >= 0,
+                  label: "geçen aydan"
+                }}
+                prefix="₺"
+              />
+              <StatCard
+                title="Yıllık Gelir"
+                value={Number(stats?.yearly_revenue || 0)}
+                description="Bu yılki toplam gelir"
+                icon={<CreditCardIcon className="h-4 w-4 text-muted-foreground" />}
+                trend={{
+                  value: Math.abs(stats?.yearlyRevenueTrend || 0),
+                  isPositive: (stats?.yearlyRevenueTrend || 0) >= 0,
+                  label: "geçen yıldan"
+                }}
+                prefix="₺"
+              />
+            </div>
+            <div className="grid gap-4 grid-cols-1 lg:grid-cols-7 w-full">
+              <div className="col-span-1 lg:col-span-4 w-full min-w-0">
+                <Card className="h-full">
+                  <CardHeader>
+                    <CardTitle>Aylık Gelir</CardTitle>
+                    <CardDescription>Aylara göre servis gelirleri</CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    {revenueLoading ? (
+                      <div className="flex justify-center items-center h-[280px]">
+                        <AnimatedCarLoader size={120} />
+                      </div>
+                    ) : (
+                      <RevenueChart data={monthlyRevenueData || []} />
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+              <div className="col-span-1 lg:col-span-3">
+                <Card className="h-full">
+                  <CardHeader>
+                    <CardTitle>Günlük Plan</CardTitle>
+                    <CardDescription>Bugün planlanmış servisler</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <DailySchedules />
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+            <RecentServices />
+          </TabsContent>
+          <TabsContent value="analytics" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Analitik</CardTitle>
+                <CardDescription>
+                  Gelişmiş veri analizi ve görselleştirmeler
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="h-[300px] flex items-center justify-center text-muted-foreground">
+                Analitik özellikleri yakında eklenecek...
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      )}
     </div>
   );
 };
