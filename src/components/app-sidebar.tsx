@@ -112,11 +112,11 @@ const data = {
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { userProfile, logout } = useAuth();
+  const { userProfile, signOut } = useAuth();
 
   const handleLogout = async () => {
     try {
-      await logout();
+      await signOut();
       navigate("/login");
     } catch (error) {
       console.error("Logout error:", error);
