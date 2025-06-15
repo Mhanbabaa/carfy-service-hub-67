@@ -136,6 +136,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     ? `${userProfile.first_name?.[0] || ''}${userProfile.last_name?.[0] || ''}`.toUpperCase()
     : 'U';
 
+  // Get tenant name - using a placeholder for now since tenant data structure isn't clear
+  const tenantName = "Servis Merkezi"; // This should be replaced with actual tenant name from userProfile
+
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
@@ -148,14 +151,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                 >
                   <Avatar className="h-8 w-8 rounded-lg">
-                    <AvatarImage src={data.user.avatar} alt={userName} />
-                    <AvatarFallback className="rounded-lg">{userInitials}</AvatarFallback>
+                    <AvatarImage src={data.user.avatar} alt={tenantName} />
+                    <AvatarFallback className="rounded-lg">SM</AvatarFallback>
                   </Avatar>
-                  <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-semibold">{userName}</span>
-                    <span className="truncate text-xs">{userEmail}</span>
+                  <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
+                    <span className="truncate font-semibold">{tenantName}</span>
+                    <span className="truncate text-xs text-muted-foreground">Oto Servis</span>
                   </div>
-                  <ChevronUp className="ml-auto size-4" />
+                  <ChevronUp className="ml-auto size-4 flex-shrink-0" />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent
@@ -188,9 +191,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     {item.items ? (
                       <>
                         <CollapsibleTrigger asChild>
-                          <SidebarMenuButton tooltip={item.title}>
-                            {item.icon && <item.icon />}
-                            <span>{item.title}</span>
+                          <SidebarMenuButton tooltip={item.title} className="min-w-0">
+                            {item.icon && <item.icon className="flex-shrink-0" />}
+                            <span className="truncate">{item.title}</span>
                           </SidebarMenuButton>
                         </CollapsibleTrigger>
                         <CollapsibleContent>
@@ -200,10 +203,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                 <SidebarMenuSubButton 
                                   asChild
                                   isActive={isActive(subItem.url)}
+                                  className="min-w-0"
                                 >
                                   <a href={subItem.url}>
-                                    {subItem.icon && <subItem.icon />}
-                                    <span>{subItem.title}</span>
+                                    {subItem.icon && <subItem.icon className="flex-shrink-0" />}
+                                    <span className="truncate">{subItem.title}</span>
                                   </a>
                                 </SidebarMenuSubButton>
                               </SidebarMenuSubItem>
@@ -216,10 +220,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                         asChild 
                         tooltip={item.title}
                         isActive={isActive(item.url)}
+                        className="min-w-0"
                       >
                         <a href={item.url}>
-                          {item.icon && <item.icon />}
-                          <span>{item.title}</span>
+                          {item.icon && <item.icon className="flex-shrink-0" />}
+                          <span className="truncate">{item.title}</span>
                         </a>
                       </SidebarMenuButton>
                     )}
@@ -240,10 +245,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                       asChild 
                       size="sm"
                       isActive={isActive(item.url)}
+                      className="min-w-0"
                     >
                       <a href={item.url}>
-                        <item.icon />
-                        <span>{item.title}</span>
+                        <item.icon className="flex-shrink-0" />
+                        <span className="truncate">{item.title}</span>
                       </a>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -266,11 +272,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     <AvatarImage src={data.user.avatar} alt={userName} />
                     <AvatarFallback className="rounded-lg">{userInitials}</AvatarFallback>
                   </Avatar>
-                  <div className="grid flex-1 text-left text-sm leading-tight">
+                  <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
                     <span className="truncate font-semibold">{userName}</span>
-                    <span className="truncate text-xs">{userEmail}</span>
+                    <span className="truncate text-xs text-muted-foreground">{userEmail}</span>
                   </div>
-                  <ChevronUp className="ml-auto size-4" />
+                  <ChevronUp className="ml-auto size-4 flex-shrink-0" />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent
