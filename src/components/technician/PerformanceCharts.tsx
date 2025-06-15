@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart, Line } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { TrendingUp, Clock, AlertTriangle, DollarSign } from 'lucide-react';
 
 export function PerformanceCharts() {
@@ -61,7 +61,7 @@ export function PerformanceCharts() {
               />
               <YAxis tickFormatter={formatCurrency} fontSize={12} />
               <Tooltip 
-                formatter={[formatCurrency, 'Ciro']}
+                formatter={(value: any) => [formatCurrency(Number(value)), 'Ciro']}
                 labelStyle={{ color: '#000' }}
               />
               <Bar dataKey="revenue" fill="#8884d8" />
@@ -95,7 +95,7 @@ export function PerformanceCharts() {
                 fontSize={12}
               />
               <Tooltip 
-                formatter={[(value: number) => [value, 'İş Sayısı']]}
+                formatter={(value: any) => [Number(value), 'İş Sayısı']}
                 labelStyle={{ color: '#000' }}
               />
               <Bar dataKey="jobs" fill="#82ca9d" />
@@ -129,7 +129,7 @@ export function PerformanceCharts() {
                 fontSize={12}
               />
               <Tooltip 
-                formatter={[(value: number) => [formatTime(value), 'Ortalama Süre']]}
+                formatter={(value: any) => [formatTime(Number(value)), 'Ortalama Süre']}
                 labelStyle={{ color: '#000' }}
               />
               <Bar dataKey="avgTime" fill="#ffc658" />
@@ -160,7 +160,7 @@ export function PerformanceCharts() {
               />
               <YAxis fontSize={12} />
               <Tooltip 
-                formatter={[(value: number) => [value, 'Geri Gelen İş']]}
+                formatter={(value: any) => [Number(value), 'Geri Gelen İş']}
                 labelStyle={{ color: '#000' }}
               />
               <Bar dataKey="comebacks" fill="#ff7300" />

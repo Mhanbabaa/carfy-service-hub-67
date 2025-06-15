@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { DatePickerWithRange } from '@/components/date-range-picker';
+import { DateRangePicker } from '@/components/date-range-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,9 +10,10 @@ import { PerformanceCharts } from '@/components/technician/PerformanceCharts';
 import { PerformanceTable } from '@/components/technician/PerformanceTable';
 import { addDays, format } from 'date-fns';
 import { tr } from 'date-fns/locale';
+import type { DateRange } from 'react-day-picker';
 
 export default function TechnicianPerformance() {
-  const [dateRange, setDateRange] = useState({
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: addDays(new Date(), -30),
     to: new Date(),
   });
@@ -66,10 +67,10 @@ export default function TechnicianPerformance() {
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:gap-6">
             <div className="space-y-2">
               <label className="text-sm font-medium">Tarih Aralığı</label>
-              <DatePickerWithRange
-                date={dateRange}
-                onDateChange={setDateRange}
-                placeholder="Tarih aralığı seçin"
+              <DateRangePicker
+                dateRange={dateRange}
+                onDateRangeChange={setDateRange}
+                className="w-full md:w-[300px]"
               />
             </div>
             
@@ -107,12 +108,14 @@ export default function TechnicianPerformance() {
           </div>
 
           {/* Seçilen Dönem Göstergesi */}
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Clock className="h-4 w-4" />
-            <span>
-              Analiz Dönemi: {format(dateRange.from, 'dd MMM yyyy', { locale: tr })} - {format(dateRange.to, 'dd MMM yyyy', { locale: tr })}
-            </span>
-          </div>
+          {dateRange?.from && dateRange?.to && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Clock className="h-4 w-4" />
+              <span>
+                Analiz Dönemi: {format(dateRange.from, 'dd MMM yyyy', { locale: tr })} - {format(dateRange.to, 'dd MMM yyyy', { locale: tr })}
+              </span>
+            </div>
+          )}
         </CardContent>
       </Card>
 
