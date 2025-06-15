@@ -1,13 +1,8 @@
-
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 
-interface AdminRouteProps {
-  children: React.ReactNode;
-}
-
-export const AdminRoute: React.FC<AdminRouteProps> = ({ children }) => {
+export const AdminRoute: React.FC = () => {
   const { userProfile, loading } = useAuth();
 
   // Yükleme sırasında beklet
@@ -27,7 +22,7 @@ export const AdminRoute: React.FC<AdminRouteProps> = ({ children }) => {
     return <Navigate to="/unauthorized" replace />;
   }
 
-  return <>{children}</>;
+  return <Outlet />;
 };
 
-export default AdminRoute;
+export default AdminRoute; 

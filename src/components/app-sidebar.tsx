@@ -1,304 +1,287 @@
 
-import * as React from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
-import {
-  ChevronUp,
-  User2,
-  LayoutDashboard,
-  Wrench,
-  Car,
-  Users,
-  Package,
-  UserCheck,
-  Building2,
-  Settings,
-  LogOut,
-  TrendingUp,
-  BarChart3
-} from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
+import { cn } from "@/lib/utils";
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarGroupContent,
   SidebarMenu,
-  SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
-  SidebarRail,
+  SidebarMenuButton,
 } from "@/components/ui/sidebar";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+  Car,
+  Home,
+  Settings,
+  Users,
+  Wrench,
+  Package,
+  UserCog,
+  CarFront,
+  ChevronUp,
+  LogOut,
+  User,
+  Lock,
+} from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
+import { getTenantName } from "@/utils/pdf/tenantUtils";
+import { useState, useEffect } from "react";
 
-const data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
-  },
-  navMain: [
-    {
-      title: "Dashboard",
-      url: "/dashboard",
-      icon: LayoutDashboard,
-    },
-    {
-      title: "Servisler",
-      url: "/services",
-      icon: Wrench,
-    },
-    {
-      title: "Araçlar",
-      url: "/vehicles",
-      icon: Car,
-    },
-    {
-      title: "Müşteriler",
-      url: "/customers",
-      icon: Users,
-    },
-    {
-      title: "Parçalar",
-      url: "/parts",
-      icon: Package,
-    },
-    {
-      title: "Personel",
-      url: "/personnel",
-      icon: UserCheck,
-    },
-    {
-      title: "Raporlar",
-      icon: BarChart3,
-      items: [
-        {
-          title: "Teknisyen Performansı",
-          url: "/technician-performance",
-          icon: TrendingUp,
-        },
-      ],
-    },
-  ],
-  navSecondary: [
-    {
-      title: "Admin Panel",
-      url: "/admin",
-      icon: Settings,
-    },
-    {
-      title: "Markalar",
-      url: "/brands",
-      icon: Building2,
-    },
-  ],
-};
+interface SidebarLinkProps {
+  to: string;
+  icon: React.ElementType;
+  label: string;
+  isActive?: boolean;
+}
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const navigate = useNavigate();
+function SidebarLink({ to, icon: Icon, label, isActive }: SidebarLinkProps) {
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton asChild isActive={isActive} tooltip={label}>
+        <Link to={to} className="flex items-center gap-3">
+          <Icon className="h-4 w-4" />
+          <span>{label}</span>
+        </Link>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
+}
+
+export function AppSidebar() {
   const location = useLocation();
+  const currentPath = location.pathname;
   const { userProfile, signOut } = useAuth();
-
-  const handleLogout = async () => {
+  const navigate = useNavigate();
+  const [tenantName, setTenantName] = useState("CARFY");
+  
+  useEffect(() => {
+    const fetchTenantName = async () => {
+      const name = await getTenantName();
+      setTenantName(name);
+    };
+    
+    fetchTenantName();
+  }, []);
+  
+  const handleSignOut = async () => {
     try {
       await signOut();
-      navigate("/login");
+      navigate('/login');
     } catch (error) {
-      console.error("Logout error:", error);
+      console.error('Sign out error:', error);
     }
   };
 
-  const isActive = (url: string) => {
-    return location.pathname === url;
+  const getInitials = (firstName?: string | null, lastName?: string | null, email?: string) => {
+    if (firstName && lastName) {
+      return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+    } else if (firstName) {
+      return firstName.charAt(0).toUpperCase();
+    } else if (lastName) {
+      return lastName.charAt(0).toUpperCase();
+    } else if (email) {
+      return email.charAt(0).toUpperCase();
+    }
+    return "U";
   };
 
-  const userName = userProfile 
-    ? `${userProfile.first_name} ${userProfile.last_name}` 
-    : 'Kullanıcı';
+  const getUserDisplayName = () => {
+    if (userProfile?.first_name && userProfile?.last_name) {
+      return `${userProfile.first_name} ${userProfile.last_name}`;
+    } else if (userProfile?.first_name) {
+      return userProfile.first_name;
+    } else if (userProfile?.last_name) {
+      return userProfile.last_name;
+    } else {
+      return userProfile?.email || "Kullanıcı";
+    }
+  };
+
+  // Check if user is superadmin
+  const isSuperAdmin = userProfile?.role === "superadmin";
   
-  const userEmail = userProfile?.email || '';
-  const userInitials = userProfile 
-    ? `${userProfile.first_name?.[0] || ''}${userProfile.last_name?.[0] || ''}`.toUpperCase()
-    : 'U';
-
-  // Get tenant name - using a placeholder for now since tenant data structure isn't clear
-  const tenantName = "Servis Merkezi"; // This should be replaced with actual tenant name from userProfile
-
   return (
-    <Sidebar collapsible="icon" {...props}>
+    <Sidebar variant="inset" collapsible="icon">
       <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <SidebarMenuButton
-                  size="lg"
-                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-                >
-                  <Avatar className="h-8 w-8 rounded-lg">
-                    <AvatarImage src={data.user.avatar} alt={tenantName} />
-                    <AvatarFallback className="rounded-lg">SM</AvatarFallback>
-                  </Avatar>
-                  <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
-                    <span className="truncate font-semibold">{tenantName}</span>
-                    <span className="truncate text-xs text-muted-foreground">Oto Servis</span>
-                  </div>
-                  <ChevronUp className="ml-auto size-4 flex-shrink-0" />
-                </SidebarMenuButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
-                side="bottom"
-                align="end"
-                sideOffset={4}
-              >
-                <DropdownMenuItem onClick={() => navigate("/profile")}>
-                  <User2 />
-                  Profil
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleLogout}>
-                  <LogOut />
-                  Çıkış Yap
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        <div className="flex items-center gap-2 px-2 py-1">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <Wrench className="h-4 w-4" />
+          </div>
+          <div className="grid flex-1 text-left text-sm leading-tight">
+            <span className="truncate font-semibold">{tenantName}</span>
+            <span className="truncate text-xs text-muted-foreground">Servis Yönetim</span>
+          </div>
+        </div>
       </SidebarHeader>
+      
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>Ana Menü</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {data.navMain.map((item) => (
-                <Collapsible key={item.title} asChild defaultOpen={item.items?.some(subItem => isActive(subItem.url))}>
-                  <SidebarMenuItem>
-                    {item.items ? (
-                      <>
-                        <CollapsibleTrigger asChild>
-                          <SidebarMenuButton tooltip={item.title} className="min-w-0">
-                            {item.icon && <item.icon className="flex-shrink-0" />}
-                            <span className="truncate">{item.title}</span>
-                          </SidebarMenuButton>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent>
-                          <SidebarMenuSub>
-                            {item.items.map((subItem) => (
-                              <SidebarMenuSubItem key={subItem.title}>
-                                <SidebarMenuSubButton 
-                                  asChild
-                                  isActive={isActive(subItem.url)}
-                                  className="min-w-0"
-                                >
-                                  <a href={subItem.url}>
-                                    {subItem.icon && <subItem.icon className="flex-shrink-0" />}
-                                    <span className="truncate">{subItem.title}</span>
-                                  </a>
-                                </SidebarMenuSubButton>
-                              </SidebarMenuSubItem>
-                            ))}
-                          </SidebarMenuSub>
-                        </CollapsibleContent>
-                      </>
-                    ) : (
-                      <SidebarMenuButton 
-                        asChild 
-                        tooltip={item.title}
-                        isActive={isActive(item.url)}
-                        className="min-w-0"
-                      >
-                        <a href={item.url}>
-                          {item.icon && <item.icon className="flex-shrink-0" />}
-                          <span className="truncate">{item.title}</span>
-                        </a>
-                      </SidebarMenuButton>
-                    )}
-                  </SidebarMenuItem>
-                </Collapsible>
-              ))}
+              <SidebarLink 
+                to="/dashboard" 
+                icon={Home} 
+                label="Kontrol Paneli" 
+                isActive={currentPath === "/dashboard"} 
+              />
+              <SidebarLink 
+                to="/vehicles" 
+                icon={Car} 
+                label="Araçlar" 
+                isActive={currentPath.startsWith("/vehicles")} 
+              />
+              <SidebarLink 
+                to="/customers" 
+                icon={Users} 
+                label="Müşteriler" 
+                isActive={currentPath.startsWith("/customers")} 
+              />
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        {userProfile?.role === 'admin' && (
+        
+        <SidebarGroup>
+          <SidebarGroupLabel>Servis</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarLink 
+                to="/services" 
+                icon={Wrench} 
+                label="Servis İşlemleri" 
+                isActive={currentPath.startsWith("/services")} 
+              />
+              <SidebarLink 
+                to="/parts" 
+                icon={Package} 
+                label="Servis Parçaları" 
+                isActive={currentPath.startsWith("/parts")} 
+              />
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Yönetim</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarLink 
+                to="/personnel" 
+                icon={UserCog} 
+                label="Personel" 
+                isActive={currentPath.startsWith("/personnel")} 
+              />
+              <SidebarLink 
+                to="/brands" 
+                icon={CarFront} 
+                label="Marka ve Modeller" 
+                isActive={currentPath.startsWith("/brands")} 
+              />
+              <SidebarLink 
+                to="/settings" 
+                icon={Settings} 
+                label="Ayarlar" 
+                isActive={currentPath.startsWith("/settings")} 
+              />
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {isSuperAdmin && (
           <SidebarGroup>
-            <SidebarGroupLabel>Yönetim</SidebarGroupLabel>
+            <SidebarGroupLabel>Yönetici</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {data.navSecondary.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton 
-                      asChild 
-                      size="sm"
-                      isActive={isActive(item.url)}
-                      className="min-w-0"
-                    >
-                      <a href={item.url}>
-                        <item.icon className="flex-shrink-0" />
-                        <span className="truncate">{item.title}</span>
-                      </a>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
+                <SidebarLink 
+                  to="/admin" 
+                  icon={Settings} 
+                  label="Yönetim Paneli" 
+                  isActive={currentPath.startsWith("/admin")} 
+                />
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
         )}
       </SidebarContent>
+      
       <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <SidebarMenuButton
-                  size="lg"
-                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-                >
-                  <Avatar className="h-8 w-8 rounded-lg">
-                    <AvatarImage src={data.user.avatar} alt={userName} />
-                    <AvatarFallback className="rounded-lg">{userInitials}</AvatarFallback>
-                  </Avatar>
-                  <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
-                    <span className="truncate font-semibold">{userName}</span>
-                    <span className="truncate text-xs text-muted-foreground">{userEmail}</span>
-                  </div>
-                  <ChevronUp className="ml-auto size-4 flex-shrink-0" />
-                </SidebarMenuButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
-                side="top"
-                align="end"
-                sideOffset={4}
-              >
-                <DropdownMenuItem onClick={() => navigate("/profile")}>
-                  <User2 />
-                  Profil
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleLogout}>
-                  <LogOut />
-                  Çıkış Yap
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <SidebarMenuButton
+              size="lg"
+              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+            >
+              <Avatar className="h-8 w-8 rounded-lg">
+                <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
+                  {getInitials(userProfile?.first_name, userProfile?.last_name, userProfile?.email)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="grid flex-1 text-left text-sm leading-tight">
+                <span className="truncate font-semibold">
+                  {getUserDisplayName()}
+                </span>
+                <span className="truncate text-xs text-muted-foreground">
+                  {userProfile?.email}
+                </span>
+              </div>
+              <ChevronUp className="ml-auto size-4" />
+            </SidebarMenuButton>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+            side="bottom"
+            align="end"
+            sideOffset={4}
+          >
+            <DropdownMenuLabel className="p-0 font-normal">
+              <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+                <Avatar className="h-8 w-8 rounded-lg">
+                  <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
+                    {getInitials(userProfile?.first_name, userProfile?.last_name, userProfile?.email)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-semibold">
+                    {getUserDisplayName()}
+                  </span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    {userProfile?.email}
+                  </span>
+                </div>
+              </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => navigate('/profile')}>
+              <User className="mr-2 h-4 w-4" />
+              <span>Profil Bilgileri</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate('/change-password')}>
+              <Lock className="mr-2 h-4 w-4" />
+              <span>Şifre Değiştir</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleSignOut} className="text-red-600">
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>Çıkış Yap</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </SidebarFooter>
-      <SidebarRail />
     </Sidebar>
   );
 }
