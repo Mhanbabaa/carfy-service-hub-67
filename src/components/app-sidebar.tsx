@@ -36,6 +36,7 @@ import {
   LogOut,
   User,
   Lock,
+  BarChart3,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -53,9 +54,9 @@ function SidebarLink({ to, icon: Icon, label, isActive }: SidebarLinkProps) {
   return (
     <SidebarMenuItem>
       <SidebarMenuButton asChild isActive={isActive} tooltip={label}>
-        <Link to={to} className="flex items-center gap-3">
-          <Icon className="h-4 w-4" />
-          <span>{label}</span>
+        <Link to={to} className="flex items-center gap-3 min-w-0">
+          <Icon className="h-4 w-4 flex-shrink-0" />
+          <span className="truncate">{label}</span>
         </Link>
       </SidebarMenuButton>
     </SidebarMenuItem>
@@ -118,13 +119,13 @@ export function AppSidebar() {
   return (
     <Sidebar variant="inset" collapsible="icon">
       <SidebarHeader>
-        <div className="flex items-center gap-2 px-2 py-1">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+        <div className="flex items-center gap-2 px-2 py-1 min-w-0">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground flex-shrink-0">
             <Wrench className="h-4 w-4" />
           </div>
-          <div className="grid flex-1 text-left text-sm leading-tight">
-            <span className="truncate font-semibold">{tenantName}</span>
-            <span className="truncate text-xs text-muted-foreground">Servis Yönetim</span>
+          <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
+            <span className="truncate font-semibold">Servis Merkezi</span>
+            <span className="truncate text-xs text-muted-foreground">Yönetim Sistemi</span>
           </div>
         </div>
       </SidebarHeader>
@@ -187,6 +188,12 @@ export function AppSidebar() {
                 isActive={currentPath.startsWith("/personnel")} 
               />
               <SidebarLink 
+                to="/technician-performance" 
+                icon={BarChart3} 
+                label="Teknisyen Analizi" 
+                isActive={currentPath.startsWith("/technician-performance")} 
+              />
+              <SidebarLink 
                 to="/brands" 
                 icon={CarFront} 
                 label="Marka ve Modeller" 
@@ -226,12 +233,12 @@ export function AppSidebar() {
               size="lg"
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
-              <Avatar className="h-8 w-8 rounded-lg">
+              <Avatar className="h-8 w-8 rounded-lg flex-shrink-0">
                 <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
                   {getInitials(userProfile?.first_name, userProfile?.last_name, userProfile?.email)}
                 </AvatarFallback>
               </Avatar>
-              <div className="grid flex-1 text-left text-sm leading-tight">
+              <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
                 <span className="truncate font-semibold">
                   {getUserDisplayName()}
                 </span>
@@ -239,7 +246,7 @@ export function AppSidebar() {
                   {userProfile?.email}
                 </span>
               </div>
-              <ChevronUp className="ml-auto size-4" />
+              <ChevronUp className="ml-auto size-4 flex-shrink-0" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
@@ -249,13 +256,13 @@ export function AppSidebar() {
             sideOffset={4}
           >
             <DropdownMenuLabel className="p-0 font-normal">
-              <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                <Avatar className="h-8 w-8 rounded-lg">
+              <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm min-w-0">
+                <Avatar className="h-8 w-8 rounded-lg flex-shrink-0">
                   <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
                     {getInitials(userProfile?.first_name, userProfile?.last_name, userProfile?.email)}
                   </AvatarFallback>
                 </Avatar>
-                <div className="grid flex-1 text-left text-sm leading-tight">
+                <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
                   <span className="truncate font-semibold">
                     {getUserDisplayName()}
                   </span>

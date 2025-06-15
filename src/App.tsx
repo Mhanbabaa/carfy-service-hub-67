@@ -25,6 +25,7 @@ import NotFound from './pages/NotFound';
 import LandingPage from './pages/LandingPage';
 import Signup from './pages/Signup';
 import Debug from './pages/Debug';
+import TechnicianPerformance from './pages/TechnicianPerformance';
 
 // Initialize the query client
 const queryClient = new QueryClient();
@@ -75,6 +76,7 @@ function App() {
                   <Route path="/services/:id" element={<ServiceDetail />} />
                   <Route path="/parts" element={<Parts />} />
                   <Route path="/personnel" element={<Personnel />} />
+                  <Route path="/technician-performance" element={<TechnicianPerformance />} />
                   <Route path="/brands" element={<Brands />} />
                   <Route path="/profile" element={<Profile />} />
                   <Route path="/debug" element={<Debug />} />
