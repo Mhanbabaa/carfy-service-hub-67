@@ -11,6 +11,7 @@ import { PerformanceTable } from '@/components/technician/PerformanceTable';
 import { addDays, format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import type { DateRange } from 'react-day-picker';
+import { useSupabaseQuery } from '@/hooks/use-supabase-query';
 
 export default function TechnicianPerformance() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
@@ -19,13 +20,41 @@ export default function TechnicianPerformance() {
   });
   const [selectedTechnicians, setSelectedTechnicians] = useState<string[]>([]);
 
-  // Mock data - gerçek uygulamada API'den gelecek
-  const mockKPIs = {
-    totalJobs: 156,
-    totalRevenue: 125000,
-    avgCompletionTime: 2.5,
-    customerSatisfaction: 4.7,
-  };
+  // Fetch technicians data
+  const { data: techniciansData } = useSupabaseQuery('users', {
+    filter: { role: 'technician', status: 'active' },
+    select: 'id,first_name,last_name,email,phone',
+    queryKey: ['technicians']
+  });
+
+  // Fetch services data for KPIs
+  const { data: servicesData } = useSupabaseQuery('services', {
+    filter: {
+      status: 'completed',
+      ...(dateRange?.from && dateRange?.to && {
+        updated_at: `gte.${dateRange.from.toISOString()}`
+      })
+    },
+    select: 'id,labor_cost,parts_cost,total_cost,updated_at,arrival_date,delivery_date,technician_id',
+    queryKey: ['services-performance', dateRange]
+  });
+
+  const technicians = techniciansData?.data || [];
+  const services = servicesData?.data || [];
+
+  // Calculate KPIs
+  const totalJobs = services.length;
+  const totalRevenue = services.reduce((sum, service) => sum + (Number(service.total_cost) || 0), 0);
+  const avgCompletionTime = services.length > 0 ? 
+    services.reduce((sum, service) => {
+      if (service.arrival_date && service.delivery_date) {
+        const arrivalDate = new Date(service.arrival_date);
+        const deliveryDate = new Date(service.delivery_date);
+        const diffDays = Math.ceil((deliveryDate.getTime() - arrivalDate.getTime()) / (1000 * 60 * 60 * 24));
+        return sum + diffDays;
+      }
+      return sum;
+    }, 0) / services.length : 0;
 
   const quickFilters = [
     { label: 'Son 7 Gün', days: 7 },
@@ -40,6 +69,14 @@ export default function TechnicianPerformance() {
       from: addDays(new Date(), -days),
       to: new Date(),
     });
+  };
+
+  const handleTechnicianFilter = (technicianId: string) => {
+    if (technicianId === 'all') {
+      setSelectedTechnicians([]);
+    } else {
+      setSelectedTechnicians([technicianId]);
+    }
   };
 
   return (
@@ -93,16 +130,17 @@ export default function TechnicianPerformance() {
           {/* Teknisyen Filtresi */}
           <div className="space-y-2">
             <label className="text-sm font-medium">Teknisyen Seçimi</label>
-            <Select>
+            <Select onValueChange={handleTechnicianFilter}>
               <SelectTrigger className="w-full md:w-[300px]">
                 <SelectValue placeholder="Tüm teknisyenler veya seçim yapın" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tüm Teknisyenler</SelectItem>
-                <SelectItem value="ahmet-yilmaz">Ahmet Yılmaz</SelectItem>
-                <SelectItem value="mehmet-kara">Mehmet Kara</SelectItem>
-                <SelectItem value="ali-demir">Ali Demir</SelectItem>
-                <SelectItem value="mustafa-ozkan">Mustafa Özkan</SelectItem>
+                {technicians.map((technician) => (
+                  <SelectItem key={technician.id} value={technician.id}>
+                    {technician.first_name} {technician.last_name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -127,9 +165,9 @@ export default function TechnicianPerformance() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{mockKPIs.totalJobs}</div>
+            <div className="text-2xl font-bold">{totalJobs}</div>
             <p className="text-xs text-muted-foreground">
-              +12% geçen aya göre
+              Seçilen dönemde
             </p>
           </CardContent>
         </Card>
@@ -140,9 +178,9 @@ export default function TechnicianPerformance() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">₺{mockKPIs.totalRevenue.toLocaleString()}</div>
+            <div className="text-2xl font-bold">₺{totalRevenue.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
-              +8% geçen aya göre
+              Seçilen dönemde
             </p>
           </CardContent>
         </Card>
@@ -153,32 +191,41 @@ export default function TechnicianPerformance() {
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{mockKPIs.avgCompletionTime} gün</div>
+            <div className="text-2xl font-bold">{avgCompletionTime.toFixed(1)} gün</div>
             <p className="text-xs text-muted-foreground">
-              -0.3 gün geçen aya göre
+              Ortalama süre
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Müşteri Memnuniyeti</CardTitle>
+            <CardTitle className="text-sm font-medium">Aktif Teknisyen</CardTitle>
             <Star className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{mockKPIs.customerSatisfaction}/5</div>
+            <div className="text-2xl font-bold">{technicians.length}</div>
             <p className="text-xs text-muted-foreground">
-              +0.2 puan geçen aya göre
+              Toplam teknisyen sayısı
             </p>
           </CardContent>
         </Card>
       </div>
 
       {/* 3. Bölüm: Görsel Analiz Alanı (Grafikler) */}
-      <PerformanceCharts />
+      <PerformanceCharts 
+        technicians={technicians}
+        services={services}
+        selectedTechnicians={selectedTechnicians}
+        dateRange={dateRange}
+      />
 
       {/* 4. Bölüm: Detaylı Veri Tablosu */}
-      <PerformanceTable />
+      <PerformanceTable 
+        technicians={technicians}
+        services={services}
+        selectedTechnicians={selectedTechnicians}
+      />
     </div>
   );
 }

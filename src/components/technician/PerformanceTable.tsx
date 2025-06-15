@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 interface TechnicianData {
   id: string;
   name: string;
+  email: string;
   avatar?: string;
   completedJobs: number;
   totalRevenue: number;
@@ -21,60 +22,64 @@ interface TechnicianData {
   customerSatisfaction: number;
 }
 
+interface PerformanceTableProps {
+  technicians: any[];
+  services: any[];
+  selectedTechnicians: string[];
+}
+
 type SortKey = keyof TechnicianData;
 type SortOrder = 'asc' | 'desc';
 
-export function PerformanceTable() {
+export function PerformanceTable({ technicians, services, selectedTechnicians }: PerformanceTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>('totalRevenue');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
 
-  // Mock data - gerçek uygulamada API'den gelecek
-  const technicianData: TechnicianData[] = [
-    {
-      id: '1',
-      name: 'Ali Demir',
-      completedJobs: 45,
-      totalRevenue: 31200,
-      laborRevenue: 18700,
-      partsRevenue: 12500,
-      avgCompletionTime: 2.3,
-      comebacks: 2,
-      customerSatisfaction: 4.8,
-    },
-    {
-      id: '2',
-      name: 'Ahmet Yılmaz',
-      completedJobs: 42,
-      totalRevenue: 28500,
-      laborRevenue: 17100,
-      partsRevenue: 11400,
-      avgCompletionTime: 2.7,
-      comebacks: 4,
-      customerSatisfaction: 4.6,
-    },
-    {
-      id: '3',
-      name: 'Mehmet Kara',
-      completedJobs: 38,
-      totalRevenue: 24800,
-      laborRevenue: 14900,
-      partsRevenue: 9900,
-      avgCompletionTime: 2.1,
-      comebacks: 3,
-      customerSatisfaction: 4.7,
-    },
-    {
-      id: '4',
-      name: 'Mustafa Özkan',
-      completedJobs: 31,
-      totalRevenue: 19600,
-      laborRevenue: 11800,
-      partsRevenue: 7800,
-      avgCompletionTime: 3.2,
-      comebacks: 7,
-      customerSatisfaction: 4.2,
-    },
-  ];
+  // Process technician data
+  const processData = (): TechnicianData[] => {
+    const filteredTechnicians = selectedTechnicians.length > 0 
+      ? technicians.filter(t => selectedTechnicians.includes(t.id))
+      : technicians;
+
+    return filteredTechnicians.map(technician => {
+      const technicianServices = services.filter(s => s.technician_id === technician.id);
+      
+      const totalRevenue = technicianServices.reduce((sum, service) => 
+        sum + (Number(service.total_cost) || 0), 0);
+      
+      const laborRevenue = technicianServices.reduce((sum, service) => 
+        sum + (Number(service.labor_cost) || 0), 0);
+      
+      const partsRevenue = technicianServices.reduce((sum, service) => 
+        sum + (Number(service.parts_cost) || 0), 0);
+
+      const avgTime = technicianServices.length > 0 ? 
+        technicianServices.reduce((sum, service) => {
+          if (service.arrival_date && service.delivery_date) {
+            const arrivalDate = new Date(service.arrival_date);
+            const deliveryDate = new Date(service.delivery_date);
+            const diffDays = Math.ceil((deliveryDate.getTime() - arrivalDate.getTime()) / (1000 * 60 * 60 * 24));
+            return sum + diffDays;
+          }
+          return sum;
+        }, 0) / technicianServices.length : 0;
+
+      return {
+        id: technician.id,
+        name: `${technician.first_name} ${technician.last_name}`,
+        email: technician.email,
+        completedJobs: technicianServices.length,
+        totalRevenue,
+        laborRevenue,
+        partsRevenue,
+        avgCompletionTime: Number(avgTime.toFixed(1)),
+        comebacks: 0, // This would need additional logic to track comeback services
+        customerSatisfaction: 4.5 // This would need customer feedback data
+      };
+    });
+  };
+
+  const technicianData = processData();
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -118,6 +123,21 @@ export function PerformanceTable() {
       return <Badge className="bg-red-100 text-red-800">Geliştirilmeli</Badge>;
     }
   };
+
+  if (technicianData.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Detaylı Performans Tablosu</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8">
+            <p className="text-muted-foreground">Seçilen kriterlere uygun teknisyen bulunamadı.</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
@@ -217,7 +237,10 @@ export function PerformanceTable() {
                           {getInitials(technician.name)}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="font-medium">{technician.name}</span>
+                      <div>
+                        <span className="font-medium">{technician.name}</span>
+                        <p className="text-xs text-muted-foreground">{technician.email}</p>
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell className="font-medium">{technician.completedJobs}</TableCell>
